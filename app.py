@@ -285,7 +285,7 @@ def calculate_depreciation(device):
 
 # ⭐ 已修改：二维码链接改为公网地址
 def generate_device_qr(device_id, device_name):
-    base_url = "https://device-manager-1406309105-hub.streamlit.app"  # 你的公网地址
+    base_url = "https://device-manager-1406309105-hub.streamlit.app"
     qr_data = f"{base_url}?page=scan_repair&device_id={device_id}"
     qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=4, border=2)
     qr.add_data(qr_data)
@@ -2375,7 +2375,7 @@ def user_management_page():
     user_list = []
     for username, info in st.session_state.users.items():
         if username in exclude_users:
-            continue  # 跳过这些默认账号
+            continue
         role_display = {"admin": "管理员", "manager": "经理", "repair": "维修工程师", "user": "普通用户"}.get(info['role'], info['role'])
         user_list.append({"用户名": username, "姓名": info.get('name', ''), "角色": role_display})
     
@@ -2387,7 +2387,6 @@ def user_management_page():
     st.markdown("---")
     st.subheader("🔑 修改密码")
     with st.form("change_password_form"):
-        # ⭐ 修改密码时也只显示非默认用户
         user_options = [u for u in st.session_state.users.keys() if u not in exclude_users]
         if user_options:
             target_user = st.selectbox("选择要修改密码的用户", user_options)

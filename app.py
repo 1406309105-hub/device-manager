@@ -283,8 +283,9 @@ def calculate_depreciation(device):
     except:
         return 0, 0, price
 
+# ⭐ 已修改：二维码链接改为公网地址
 def generate_device_qr(device_id, device_name):
-    base_url = "http://localhost:8501"  # 部署后改为公网地址
+    base_url = "https://device-manager-1406309105-hub.streamlit.app"  # 你的公网地址
     qr_data = f"{base_url}?page=scan_repair&device_id={device_id}"
     qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=4, border=2)
     qr.add_data(qr_data)
@@ -425,13 +426,14 @@ def login_page():
                         st.error("密码错误")
                 else:
                     st.error("用户不存在")
-         # 已删除默认账号提示行
+        # 已删除默认账号提示行
 
 # ==================== 侧边栏 ====================
 def render_sidebar():
     with st.sidebar:
         st.markdown("### 🏥 医疗设备MIS")
         st.markdown(f"欢迎，**{st.session_state.username}**")
+        # 已删除角色显示行
         
         show_repair_reminders()
         
@@ -2428,6 +2430,7 @@ def user_management_page():
                 st.rerun()
             else:
                 st.error("用户名已存在或为空")
+
 
 # ==================== 操作日志 ====================
 def log_page():

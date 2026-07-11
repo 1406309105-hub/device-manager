@@ -300,10 +300,29 @@ def get_repair_statistics():
     df = pd.DataFrame(st.session_state.repair_records) if st.session_state.repair_records else pd.DataFrame()
     if df.empty:
         return {'pending_count': 0, 'processing_count': 0, 'completed_count': 0, 'urgent_count': 0, 'total': 0}
+    
+    # 检查是否包含必要的列，如果没有则返回默认值
+    if 'status' not in df.columns:
+        return {
+            'pending_count': 0,
+            'processing_count': 0,
+            'completed_count': 0,
+            'urgent_count': 0,
+            'total': len(df)
+        }
+    
     pending = df[df['status'] == '待处理']
     processing = df[df['status'] == '处理中']
     completed = df[df['status'] == '已完成']
-    urgent = pending[pending['故障等级'].isin(['紧急'])] if '故障等级' in pending.columns else pending[pending['urgency'].isin(['紧急', '特急'])]
+    
+    # 判断使用哪种紧急程度字段
+    if '故障等级' in df.columns:
+        urgent = pending[pending['故障等级'].isin(['紧急'])]
+    elif 'urgency' in df.columns:
+        urgent = pending[pending['urgency'].isin(['紧急', '特急'])]
+    else:
+        urgent = pd.DataFrame()
+    
     return {
         'pending_count': len(pending),
         'processing_count': len(processing),

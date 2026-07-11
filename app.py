@@ -35,10 +35,8 @@ PARTS_FILE = "parts_data.json"
 
 PHOTO_DIR = "device_photos"
 FILE_DIR = "device_files"
-if not os.path.exists(PHOTO_DIR):
-    os.makedirs(PHOTO_DIR)
-if not os.path.exists(FILE_DIR):
-    os.makedirs(FILE_DIR)
+os.makedirs(PHOTO_DIR, exist_ok=True)
+os.makedirs(FILE_DIR, exist_ok=True)
 
 # ==================== 枚举定义 ====================
 FAULT_TYPES = [

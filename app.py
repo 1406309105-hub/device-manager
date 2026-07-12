@@ -1609,7 +1609,7 @@ def scan_repair_page():
                 st.rerun()
 
 
-# ==================== 维修工单（修改后，修复表单内按钮错误） ====================
+# ==================== 维修工单（最新版：含管理员删除权限 + 退回功能 + 操作备注） ====================
 def repair_page():
     st.subheader("🚨 维修工单管理")
     if st.session_state.get('quick_repair_mode', False):
@@ -1940,7 +1940,8 @@ def repair_page():
                 if not engineer_options:
                     engineer_options = ["暂无可用工程师"]
                 
-                col_btn1, col_btn2, col_btn3 = st.columns(3)
+                col_btn1, col_btn2, col_btn3, col_btn4 = st.columns(4)
+                is_admin = st.session_state.role == "admin"
                 
                 if current_status == "已提交":
                     assigned_to = st.selectbox("指派给", engineer_options, key=f"assign_to_{r['id']}")
@@ -1961,16 +1962,23 @@ def repair_page():
                                 save_repair_records()
                                 st.success(f"✅ 已派单给 **{assigned_to}**！")
                                 st.rerun()
-                    with col_btn2:
-                        if st.button("🗑️ 删除", key=f"del_{r['id']}"):
-                            for d in st.session_state.devices:
-                                if d['id'] == r['设备信息']['资产ID']:
-                                    d['status'] = "在用"
-                            st.session_state.repair_records = [rec for rec in st.session_state.repair_records if rec['id'] != r['id']]
-                            save_data()
-                            save_repair_records()
-                            st.success("工单已删除")
-                            st.rerun()
+                    if is_admin:
+                        with col_btn4:
+                            with st.popover("🗑️ 删除工单", use_container_width=True):
+                                st.warning("⚠️ 删除后将无法恢复，且设备状态将恢复为'在用'")
+                                confirm_del = st.checkbox("我确认删除此工单", key=f"confirm_del_{r['id']}")
+                                if st.button("确认删除", key=f"del_confirm_{r['id']}"):
+                                    if confirm_del:
+                                        for d in st.session_state.devices:
+                                            if d['id'] == r['设备信息']['资产ID']:
+                                                d['status'] = "在用"
+                                        st.session_state.repair_records = [rec for rec in st.session_state.repair_records if rec['id'] != r['id']]
+                                        save_data()
+                                        save_repair_records()
+                                        st.success("工单已删除")
+                                        st.rerun()
+                                    else:
+                                        st.error("请先勾选确认")
                 
                 elif current_status == "已派单":
                     st.markdown("### 📋 工单摘要")
@@ -2020,20 +2028,85 @@ def repair_page():
                                 else:
                                     st.error("请填写工程师和改派原因")
                     with col_btn3:
-                        if st.button("🗑️ 删除", key=f"del_{r['id']}"):
-                            for d in st.session_state.devices:
-                                if d['id'] == r['设备信息']['资产ID']:
-                                    d['status'] = "在用"
-                            st.session_state.repair_records = [rec for rec in st.session_state.repair_records if rec['id'] != r['id']]
-                            save_data()
-                            save_repair_records()
-                            st.success("工单已删除")
-                            st.rerun()
+                        with st.popover("⏪ 退回", use_container_width=True):
+                            st.warning("退回后工单将回到'已提交'状态，可重新派单。")
+                            confirm_back = st.checkbox("我确认退回此工单", key=f"confirm_back_{r['id']}")
+                            if st.button("确认退回", key=f"back_confirm_{r['id']}"):
+                                if confirm_back:
+                                    r['状态'] = "已提交"
+                                    r['处理信息']['处理人'] = ""
+                                    remark = st.session_state.get(remark_key, "")
+                                    r['状态流转'].append({
+                                        "状态": "已提交",
+                                        "操作人": st.session_state.username,
+                                        "操作时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                        "备注": f"退回至已提交。备注：{remark}" if remark else "退回至已提交"
+                                    })
+                                    save_repair_records()
+                                    st.success("工单已退回至'已提交'状态")
+                                    st.rerun()
+                                else:
+                                    st.error("请先勾选确认")
+                    if is_admin:
+                        with col_btn4:
+                            with st.popover("🗑️ 删除工单", use_container_width=True):
+                                st.warning("⚠️ 删除后将无法恢复，且设备状态将恢复为'在用'")
+                                confirm_del = st.checkbox("我确认删除此工单", key=f"confirm_del_{r['id']}")
+                                if st.button("确认删除", key=f"del_confirm_{r['id']}"):
+                                    if confirm_del:
+                                        for d in st.session_state.devices:
+                                            if d['id'] == r['设备信息']['资产ID']:
+                                                d['status'] = "在用"
+                                        st.session_state.repair_records = [rec for rec in st.session_state.repair_records if rec['id'] != r['id']]
+                                        save_data()
+                                        save_repair_records()
+                                        st.success("工单已删除")
+                                        st.rerun()
+                                    else:
+                                        st.error("请先勾选确认")
                 
                 elif current_status == "工程师接单":
                     st.success("✅ 您已接单，请填写维修记录")
-                    st.markdown("---")
                     
+                    col_back_del1, col_back_del2 = st.columns(2)
+                    with col_back_del1:
+                        with st.popover("⏪ 退回", use_container_width=True):
+                            st.warning("退回后工单将回到'已派单'状态，可重新指派或接单。")
+                            confirm_back = st.checkbox("我确认退回此工单", key=f"confirm_back_{r['id']}")
+                            if st.button("确认退回", key=f"back_confirm_{r['id']}"):
+                                if confirm_back:
+                                    r['状态'] = "已派单"
+                                    remark = st.session_state.get(remark_key, "")
+                                    r['状态流转'].append({
+                                        "状态": "已派单",
+                                        "操作人": st.session_state.username,
+                                        "操作时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                        "备注": f"退回至已派单。备注：{remark}" if remark else "退回至已派单"
+                                    })
+                                    save_repair_records()
+                                    st.success("工单已退回至'已派单'状态")
+                                    st.rerun()
+                                else:
+                                    st.error("请先勾选确认")
+                    if is_admin:
+                        with col_back_del2:
+                            with st.popover("🗑️ 删除工单", use_container_width=True):
+                                st.warning("⚠️ 删除后将无法恢复，且设备状态将恢复为'在用'")
+                                confirm_del = st.checkbox("我确认删除此工单", key=f"confirm_del_{r['id']}")
+                                if st.button("确认删除", key=f"del_confirm_{r['id']}"):
+                                    if confirm_del:
+                                        for d in st.session_state.devices:
+                                            if d['id'] == r['设备信息']['资产ID']:
+                                                d['status'] = "在用"
+                                        st.session_state.repair_records = [rec for rec in st.session_state.repair_records if rec['id'] != r['id']]
+                                        save_data()
+                                        save_repair_records()
+                                        st.success("工单已删除")
+                                        st.rerun()
+                                    else:
+                                        st.error("请先勾选确认")
+                    
+                    st.markdown("---")
                     st.markdown("## 📋 维修记录单")
                     
                     with st.form(key=f"repair_form_{r['id']}"):
@@ -2108,7 +2181,6 @@ def repair_page():
                         
                         st.markdown("---")
                         
-                        # ===== 备件使用记录（使用数字输入框控制行数） =====
                         st.markdown("**备件使用记录**")
                         part_rows = st.number_input(
                             "备件行数",
@@ -2118,7 +2190,7 @@ def repair_page():
                             value=st.session_state.get(f"part_rows_{r['id']}", 1),
                             key=f"part_rows_num_{r['id']}"
                         )
-                        st.session_state[f"part_rows_{r['id']}"] = part_rows  # 保存状态
+                        st.session_state[f"part_rows_{r['id']}"] = part_rows
                         
                         part_data = []
                         for i in range(part_rows):
@@ -2204,17 +2276,71 @@ def repair_page():
                             st.success("工单已关闭")
                             st.rerun()
                     with col_btn2:
-                        if st.button("🗑️ 删除", key=f"del_{r['id']}"):
-                            st.session_state.repair_records = [rec for rec in st.session_state.repair_records if rec['id'] != r['id']]
-                            save_repair_records()
-                            st.rerun()
+                        with st.popover("⏪ 退回", use_container_width=True):
+                            st.warning("退回后工单将回到'工程师接单'状态，可重新填写维修记录。")
+                            confirm_back = st.checkbox("我确认退回此工单", key=f"confirm_back_{r['id']}")
+                            if st.button("确认退回", key=f"back_confirm_{r['id']}"):
+                                if confirm_back:
+                                    r['状态'] = "工程师接单"
+                                    remark = st.session_state.get(remark_key, "")
+                                    r['状态流转'].append({
+                                        "状态": "工程师接单",
+                                        "操作人": st.session_state.username,
+                                        "操作时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                        "备注": f"退回至工程师接单。备注：{remark}" if remark else "退回至工程师接单"
+                                    })
+                                    save_repair_records()
+                                    st.success("工单已退回至'工程师接单'状态")
+                                    st.rerun()
+                                else:
+                                    st.error("请先勾选确认")
+                    if is_admin:
+                        with col_btn4:
+                            with st.popover("🗑️ 删除工单", use_container_width=True):
+                                st.warning("⚠️ 删除后将无法恢复")
+                                confirm_del = st.checkbox("我确认删除此工单", key=f"confirm_del_{r['id']}")
+                                if st.button("确认删除", key=f"del_confirm_{r['id']}"):
+                                    if confirm_del:
+                                        st.session_state.repair_records = [rec for rec in st.session_state.repair_records if rec['id'] != r['id']]
+                                        save_repair_records()
+                                        st.success("工单已删除")
+                                        st.rerun()
+                                    else:
+                                        st.error("请先勾选确认")
                 
                 elif current_status == "已关闭":
                     with col_btn1:
-                        if st.button("🗑️ 删除", key=f"del_{r['id']}"):
-                            st.session_state.repair_records = [rec for rec in st.session_state.repair_records if rec['id'] != r['id']]
-                            save_repair_records()
-                            st.rerun()
+                        with st.popover("⏪ 退回", use_container_width=True):
+                            st.warning("退回后工单将回到'维修完成'状态，可重新关闭或修改。")
+                            confirm_back = st.checkbox("我确认退回此工单", key=f"confirm_back_{r['id']}")
+                            if st.button("确认退回", key=f"back_confirm_{r['id']}"):
+                                if confirm_back:
+                                    r['状态'] = "维修完成"
+                                    remark = st.session_state.get(remark_key, "")
+                                    r['状态流转'].append({
+                                        "状态": "维修完成",
+                                        "操作人": st.session_state.username,
+                                        "操作时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                        "备注": f"退回至维修完成。备注：{remark}" if remark else "退回至维修完成"
+                                    })
+                                    save_repair_records()
+                                    st.success("工单已退回至'维修完成'状态")
+                                    st.rerun()
+                                else:
+                                    st.error("请先勾选确认")
+                    if is_admin:
+                        with col_btn4:
+                            with st.popover("🗑️ 删除工单", use_container_width=True):
+                                st.warning("⚠️ 删除后将无法恢复")
+                                confirm_del = st.checkbox("我确认删除此工单", key=f"confirm_del_{r['id']}")
+                                if st.button("确认删除", key=f"del_confirm_{r['id']}"):
+                                    if confirm_del:
+                                        st.session_state.repair_records = [rec for rec in st.session_state.repair_records if rec['id'] != r['id']]
+                                        save_repair_records()
+                                        st.success("工单已删除")
+                                        st.rerun()
+                                    else:
+                                        st.error("请先勾选确认")
 
 
 # ==================== 保养计划 ====================

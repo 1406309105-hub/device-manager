@@ -310,6 +310,7 @@ def get_repair_statistics():
     df = pd.DataFrame(st.session_state.repair_records) if st.session_state.repair_records else pd.DataFrame()
     if df.empty:
         return {'pending_count': 0, 'processing_count': 0, 'completed_count': 0, 'urgent_count': 0, 'total': 0}
+    # 修复 KeyError: 检查列是否存在
     if '状态' not in df.columns:
         return {
             'pending_count': 0,
@@ -669,7 +670,7 @@ def device_list_page():
                              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
-# ==================== 设备管理 ====================
+# ==================== 设备管理（自定义资产ID） ====================
 def device_manage_page():
     st.subheader("🔧 设备管理")
     tab1, tab2, tab3, tab4 = st.tabs(["➕ 添加设备", "✏️ 编辑设备", "📝 批量操作", "📎 上传资料"])
@@ -1581,9 +1582,7 @@ def scan_repair_page():
             if st.button("进入报修"):
                 st.query_params["device_id"] = device_options[selected]
                 st.rerun()
-
-
-# ==================== 维修工单（完整版，包含所有操作按钮） ====================
+                # ==================== 维修工单 ====================
 def repair_page():
     st.subheader("🚨 维修工单管理")
     if st.session_state.get('quick_repair_mode', False):
@@ -1862,7 +1861,6 @@ def repair_page():
         st.markdown("---")
         st.subheader("🔧 工单操作")
         
-        # 遍历每个工单
         for r in filtered:
             device_info = r.get('设备信息', {})
             fault_info = r.get('故障信息', {})
@@ -1870,7 +1868,7 @@ def repair_page():
             sys_info = r.get('系统字段', {})
             process_info = r.get('处理信息', {})
             
-            # ⭐ 关键：用 expander 展开工单，操作按钮都在里面
+            # 用 expander 展开工单
             with st.expander(f"📋 {r.get('工单号', '')} - {device_info.get('设备名称', '')} ({fault_info.get('故障等级', '')})"):
                 col1, col2 = st.columns(2)
                 with col1:
@@ -1916,12 +1914,9 @@ def repair_page():
                     for part in process_info['配件清单']:
                         st.write(f"- {part.get('名称')} x{part.get('数量')} ({part.get('型号')}) 旧件去向：{part.get('旧件去向')}")
                 
-                # ===== 当前状态和操作按钮 =====
-                current_status = r.get('状态', '')
-                
                 # 知识库推荐
                 fault_desc = fault_info.get('故障描述', '')
-                if fault_desc and current_status not in ['维修完成', '已关闭']:
+                if fault_desc and r.get('状态') not in ['维修完成', '已关闭']:
                     st.markdown("### 📚 知识库推荐")
                     keywords = fault_desc.split()[:3]
                     matched_kb = []
@@ -1940,7 +1935,7 @@ def repair_page():
                 
                 # 历史故障推荐
                 device_model = device_info.get('设备型号', '')
-                if device_model and current_status not in ['维修完成', '已关闭']:
+                if device_model and r.get('状态') not in ['维修完成', '已关闭']:
                     similar_records = [rec for rec in st.session_state.repair_records 
                                        if rec.get('设备信息', {}).get('设备型号') == device_model 
                                        and rec.get('状态') in ['维修完成', '已关闭']
@@ -1952,10 +1947,10 @@ def repair_page():
                                 st.write(f"**故障现象：** {sr.get('故障信息', {}).get('故障描述', '')[:80]}...")
                                 st.write(f"**处理方案：** {sr.get('处理信息', {}).get('处理结果', '暂无')}")
                 
-                # ⭐ 操作按钮（根据状态显示）
+                # ===== 操作按钮 =====
                 st.markdown("---")
                 st.markdown("#### 操作")
-                
+                current_status = r.get('状态', '')
                 col_btn1, col_btn2, col_btn3, col_btn4 = st.columns(4)
                 
                 if current_status == "已提交":

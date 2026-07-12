@@ -128,6 +128,22 @@
             transition: 0.2s;
         }
         .btn-primary:hover { background: #1d4ed8; }
+        .btn-success {
+            background: #16a34a;
+            color: #fff;
+            border: none;
+            padding: 10px 32px;
+            border-radius: 40px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(22,163,74,0.25);
+            transition: 0.2s;
+        }
+        .btn-success:hover { background: #15803d; }
         .btn-secondary {
             background: #f1f5f9;
             color: #1e293b;
@@ -142,6 +158,20 @@
             gap: 8px;
         }
         .btn-secondary:hover { background: #e2e8f0; }
+        .btn-danger {
+            background: #dc2626;
+            color: #fff;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 40px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-danger:hover { background: #b91c1c; }
 
         /* 状态时间线 */
         .status-section {
@@ -342,8 +372,8 @@
     <div class="header">
         <div class="header-left">
             <span class="badge"><i class="fas fa-exclamation-triangle" style="margin-right:6px;"></i>紧急</span>
-            <h1>监护仪 · 工单</h1>
-            <span class="ticket-id">#T202607111553C2A5</span>
+            <h1 id="pageTitle">监护仪 · 工单</h1>
+            <span class="ticket-id" id="ticketIdDisplay">#T202607111553C2A5</span>
         </div>
         <div class="header-actions">
             <button><i class="fas fa-print"></i>打印</button>
@@ -447,36 +477,22 @@
         </div>
     </div>
 
-    <!-- 保存工单信息按钮 -->
+    <!-- 按钮组 -->
     <div class="btn-group">
-        <button class="btn-primary" onclick="saveTicket()"><i class="fas fa-save"></i> 保存工单信息</button>
+        <button class="btn-success" onclick="newTicket()"><i class="fas fa-plus"></i> 新建工单</button>
+        <button class="btn-primary" onclick="saveTicket()"><i class="fas fa-save"></i> 保存工单</button>
         <button class="btn-secondary" onclick="resetTicket()"><i class="fas fa-undo-alt"></i> 重置为示例</button>
+        <button class="btn-danger" onclick="clearAll()"><i class="fas fa-trash"></i> 清空所有</button>
     </div>
 
-    <!-- ===== 状态时间线 (仍为只读示例，可后续动态) ===== -->
+    <!-- ===== 状态时间线 (动态从操作记录生成) ===== -->
     <div class="status-section">
         <div class="section-title"><i class="fas fa-clock"></i> 状态流转历史</div>
         <div class="timeline" id="timelineContainer">
-            <div class="timeline-item">
-                <span class="dot active"></span>
-                <span class="time">2026-07-11 15:53:22</span>
-                <span><strong>已提交</strong> — 系统管理员 创建工单</span>
-            </div>
-            <div class="timeline-item">
-                <span class="dot"></span>
-                <span class="time">2026-07-11 16:10:05</span>
-                <span><strong>已派单</strong> — 派发给 张伟</span>
-            </div>
-            <div class="timeline-item">
-                <span class="dot"></span>
-                <span class="time">2026-07-11 17:20:33</span>
-                <span><strong>处理中</strong> — 张伟 开始诊断</span>
-            </div>
+            <!-- 由 JS 动态渲染 -->
         </div>
-        <div class="status-meta">
-            <span><i class="far fa-calendar-alt"></i> 提交：2026-07-11 15:53:22</span>
-            <span><i class="far fa-hourglass"></i> SLA截止：<strong style="color:#dc2626;">2026-07-12 15:53:22</strong></span>
-            <span><i class="fas fa-user-cog"></i> 当前状态：<span style="background:#dbeafe;color:#1d4ed8;padding:0 12px;border-radius:12px;">处理中</span></span>
+        <div class="status-meta" id="statusMeta">
+            <!-- 由 JS 动态渲染 -->
         </div>
     </div>
 
@@ -523,101 +539,297 @@
     <div class="history-log">
         <div class="log-title"><i class="fas fa-list-ul"></i> 最近操作记录</div>
         <div id="logList">
-            <div class="log-item">
-                <div class="avatar">张</div>
-                <div class="log-content">
-                    <div class="log-meta">
-                        <span class="name">张伟</span>
-                        <span>·</span>
-                        <span>2026-07-11 17:20:33</span>
-                        <span class="tag" style="background:#fef3c7;color:#b45309;">处理中</span>
-                    </div>
-                    <div class="log-text">开始诊断，初步判断为软件冲突，需进一步检查日志。</div>
-                </div>
-            </div>
-            <div class="log-item">
-                <div class="avatar">系</div>
-                <div class="log-content">
-                    <div class="log-meta">
-                        <span class="name">系统管理员</span>
-                        <span>·</span>
-                        <span>2026-07-11 15:53:22</span>
-                        <span class="tag" style="background:#dbeafe;color:#1d4ed8;">已提交</span>
-                    </div>
-                    <div class="log-text">创建工单，故障描述：设备坏了。</div>
-                </div>
-            </div>
+            <!-- 由 JS 动态渲染 -->
         </div>
     </div>
 
     <!-- 底部 -->
     <div style="margin-top:28px;border-top:1px solid #eef2f6;padding-top:18px;display:flex;justify-content:space-between;flex-wrap:wrap;font-size:13px;color:#94a3b8;">
-        <span><i class="far fa-clock"></i> 工单创建：2026-07-11 15:53:22</span>
-        <span><i class="fas fa-rotate-right"></i> 最后更新：2026-07-11 17:20:33</span>
-        <span><i class="fas fa-user"></i> 当前处理人：张伟</span>
+        <span><i class="far fa-clock"></i> 工单创建：<span id="createTime">2026-07-11 15:53:22</span></span>
+        <span><i class="fas fa-rotate-right"></i> 最后更新：<span id="lastUpdate">2026-07-11 17:20:33</span></span>
+        <span><i class="fas fa-user"></i> 当前处理人：<span id="currentHandler">张伟</span></span>
     </div>
 
 </div>
 
 <script>
-    // ---- 字符计数 ----
-    const textarea = document.getElementById('opContent');
-    const counter = document.getElementById('charCounter');
-    textarea.addEventListener('input', function() {
-        counter.textContent = this.value.length;
-    });
+    // ================================================================
+    // 数据管理（使用 localStorage 持久化）
+    // ================================================================
 
-    // ---- 保存工单信息（模拟） ----
-    function saveTicket() {
-        const data = {
-            deviceName: document.getElementById('deviceName').value,
-            assetNo: document.getElementById('assetNo').value,
-            model: document.getElementById('model').value,
-            location: document.getElementById('location').value,
-            manufacturer: document.getElementById('manufacturer').value,
-            region: document.getElementById('region').value,
-            dept: document.getElementById('dept').value,
-            ward: document.getElementById('ward').value,
-            faultType: document.getElementById('faultType').value,
-            faultLevel: document.getElementById('faultLevel').value,
-            impactScope: document.getElementById('impactScope').value,
-            repairMethod: document.getElementById('repairMethod').value,
-            faultTime: document.getElementById('faultTime').value,
-            faultDesc: document.getElementById('faultDesc').value,
-            reporter: document.getElementById('reporter').value,
-            phone: document.getElementById('phone').value,
-            submitTime: document.getElementById('submitTime').value,
-            slaDeadline: document.getElementById('slaDeadline').value,
-        };
-        console.log('保存的工单数据：', data);
-        showToast('✅ 工单信息已保存 (模拟)', '#16a34a');
-        // 实际项目请在此处调用API
+    const STORAGE_KEY_TICKET = 'ticketData';
+    const STORAGE_KEY_OPS = 'operations';
+
+    // 默认工单示例
+    const defaultTicket = {
+        deviceName: '监护仪',
+        assetNo: '12345',
+        model: 'ipm8',
+        location: '1床',
+        manufacturer: '迈瑞',
+        region: '',
+        dept: '',
+        ward: '',
+        faultType: '软件问题',
+        faultLevel: '紧急',
+        impactScope: '单机',
+        repairMethod: '院内维修',
+        faultTime: '2026-07-11T14:30',
+        faultDesc: '设备坏了，无法开机',
+        reporter: '系统管理员',
+        phone: '12345789',
+        submitTime: '2026-07-11T15:53',
+        slaDeadline: '2026-07-12T15:53'
+    };
+
+    // 默认操作记录
+    const defaultOps = [
+        { engineer: '张伟', time: '2026-07-11 17:20:33', status: '处理中', content: '开始诊断，初步判断为软件冲突，需进一步检查日志。' },
+        { engineer: '系统管理员', time: '2026-07-11 15:53:22', status: '已提交', content: '创建工单，故障描述：设备坏了。' }
+    ];
+
+    // 当前数据
+    let ticketData = {};
+    let operations = [];
+
+    // 加载数据（从 localStorage 或默认）
+    function loadData() {
+        const savedTicket = localStorage.getItem(STORAGE_KEY_TICKET);
+        const savedOps = localStorage.getItem(STORAGE_KEY_OPS);
+        if (savedTicket) {
+            try { ticketData = JSON.parse(savedTicket); } catch(e) { ticketData = { ...defaultTicket }; }
+        } else {
+            ticketData = { ...defaultTicket };
+        }
+        if (savedOps) {
+            try { operations = JSON.parse(savedOps); } catch(e) { operations = [...defaultOps]; }
+        } else {
+            operations = [...defaultOps];
+        }
     }
 
-    // ---- 重置为示例数据 ----
+    // 保存数据到 localStorage
+    function saveData() {
+        localStorage.setItem(STORAGE_KEY_TICKET, JSON.stringify(ticketData));
+        localStorage.setItem(STORAGE_KEY_OPS, JSON.stringify(operations));
+    }
+
+    // ================================================================
+    // DOM 引用
+    // ================================================================
+    const fieldIds = [
+        'deviceName', 'assetNo', 'model', 'location', 'manufacturer',
+        'region', 'dept', 'ward', 'faultType', 'faultLevel',
+        'impactScope', 'repairMethod', 'faultTime', 'faultDesc',
+        'reporter', 'phone', 'submitTime', 'slaDeadline'
+    ];
+
+    // ================================================================
+    // 渲染函数
+    // ================================================================
+
+    // 将 ticketData 填充到表单
+    function renderTicket() {
+        fieldIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.value = ticketData[id] || '';
+            }
+        });
+        // 更新工单编号显示
+        const ticketIdDisplay = document.getElementById('ticketIdDisplay');
+        if (ticketData.ticketId) {
+            ticketIdDisplay.textContent = '#' + ticketData.ticketId;
+        } else {
+            // 若没有编号，生成一个临时编号（基于时间）
+            const ts = new Date().getTime().toString(16).toUpperCase();
+            ticketIdDisplay.textContent = '#T' + ts;
+        }
+        // 更新标题
+        document.getElementById('pageTitle').textContent = (ticketData.deviceName || '设备') + ' · 工单';
+    }
+
+    // 渲染操作记录列表（按时间倒序）
+    function renderOperations() {
+        const container = document.getElementById('logList');
+        container.innerHTML = '';
+        const sorted = [...operations].sort((a, b) => new Date(b.time) - new Date(a.time));
+        sorted.forEach(op => {
+            const div = document.createElement('div');
+            div.className = 'log-item';
+            const statusMap = {
+                '维修完成': { bg: '#dcfce7', color: '#15803d', label: '已完成' },
+                '待备件': { bg: '#fef3c7', color: '#b45309', label: '待备件' },
+                '转外修': { bg: '#fce7f3', color: '#be185d', label: '转外修' },
+                '暂无法修复': { bg: '#fee2e2', color: '#b91c1c', label: '暂无法修复' },
+                '已提交': { bg: '#dbeafe', color: '#1d4ed8', label: '已提交' },
+                '处理中': { bg: '#fef3c7', color: '#b45309', label: '处理中' },
+                '其他': { bg: '#f1f5f9', color: '#475569', label: '其他' },
+            };
+            const s = statusMap[op.status] || statusMap['其他'];
+            div.innerHTML = `
+                <div class="avatar">${op.engineer ? op.engineer.charAt(0) : '?'}</div>
+                <div class="log-content">
+                    <div class="log-meta">
+                        <span class="name">${op.engineer || '未知'}</span>
+                        <span>·</span>
+                        <span>${op.time || ''}</span>
+                        <span class="tag" style="background:${s.bg};color:${s.color};">${s.label}</span>
+                    </div>
+                    <div class="log-text">${op.content || ''}</div>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+        // 更新状态时间线（从操作记录生成）
+        renderTimeline(sorted);
+        // 更新状态元信息
+        updateStatusMeta(sorted);
+    }
+
+    // 渲染时间线
+    function renderTimeline(sortedOps) {
+        const container = document.getElementById('timelineContainer');
+        container.innerHTML = '';
+        if (sortedOps.length === 0) {
+            container.innerHTML = '<div style="color:#94a3b8;font-size:14px;">暂无操作记录</div>';
+            return;
+        }
+        sortedOps.forEach((op, index) => {
+            const div = document.createElement('div');
+            div.className = 'timeline-item';
+            const dotClass = index === 0 ? 'dot active' : 'dot';
+            div.innerHTML = `
+                <span class="${dotClass}"></span>
+                <span class="time">${op.time}</span>
+                <span><strong>${op.status}</strong> — ${op.engineer} ${op.content ? '：' + op.content : ''}</span>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    // 更新状态元信息
+    function updateStatusMeta(sortedOps) {
+        const meta = document.getElementById('statusMeta');
+        if (sortedOps.length === 0) {
+            meta.innerHTML = '<span>暂无状态信息</span>';
+            return;
+        }
+        const latest = sortedOps[0];
+        const submitTime = document.getElementById('submitTime').value || '未设置';
+        const sla = document.getElementById('slaDeadline').value || '未设置';
+        meta.innerHTML = `
+            <span><i class="far fa-calendar-alt"></i> 提交：${submitTime}</span>
+            <span><i class="far fa-hourglass"></i> SLA截止：<strong style="color:#dc2626;">${sla}</strong></span>
+            <span><i class="fas fa-user-cog"></i> 当前状态：<span style="background:#dbeafe;color:#1d4ed8;padding:0 12px;border-radius:12px;">${latest.status}</span></span>
+            <span><i class="fas fa-user"></i> 最新处理人：${latest.engineer}</span>
+        `;
+        // 更新底部
+        document.getElementById('currentHandler').textContent = latest.engineer || '未知';
+        document.getElementById('lastUpdate').textContent = latest.time || '未知';
+        document.getElementById('createTime').textContent = submitTime;
+    }
+
+    // ================================================================
+    // 操作函数
+    // ================================================================
+
+    // 从表单收集数据
+    function collectTicketFromForm() {
+        const data = {};
+        fieldIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) data[id] = el.value;
+        });
+        return data;
+    }
+
+    // 保存工单
+    function saveTicket() {
+        const newData = collectTicketFromForm();
+        // 保留原有 ticketId（如果有）
+        if (ticketData.ticketId) {
+            newData.ticketId = ticketData.ticketId;
+        }
+        ticketData = newData;
+        saveData();
+        renderTicket();
+        showToast('✅ 工单信息已保存', '#16a34a');
+        console.log('保存的工单数据：', ticketData);
+    }
+
+    // 新建工单（清空所有字段，生成新编号，清空操作记录）
+    function newTicket() {
+        if (!confirm('确认新建工单？当前数据将被清空（可先保存）。')) return;
+        // 清空 ticketData 为默认空值
+        const emptyTicket = {};
+        fieldIds.forEach(id => {
+            emptyTicket[id] = '';
+        });
+        // 生成新工单编号
+        const ts = new Date().getTime().toString(16).toUpperCase();
+        emptyTicket.ticketId = 'T' + ts;
+        // 设置默认故障等级为“紧急”
+        emptyTicket.faultLevel = '紧急';
+        emptyTicket.faultType = '软件问题';
+        emptyTicket.impactScope = '单机';
+        emptyTicket.repairMethod = '院内维修';
+        // 设置当前时间为提交时间
+        const now = new Date();
+        const iso = now.toISOString().slice(0, 16);
+        emptyTicket.submitTime = iso;
+        emptyTicket.faultTime = iso;
+        // SLA 设为提交时间 + 24小时
+        const sla = new Date(now.getTime() + 24 * 3600 * 1000);
+        emptyTicket.slaDeadline = sla.toISOString().slice(0, 16);
+
+        ticketData = emptyTicket;
+        operations = []; // 清空操作记录
+        saveData();
+        renderTicket();
+        renderOperations();
+        // 重置操作表单
+        document.getElementById('opContent').value = '';
+        document.getElementById('charCounter').textContent = '0';
+        document.getElementById('opStatus').selectedIndex = 3;
+        document.getElementById('opEngineer').value = '';
+        showToast('✅ 已创建新工单', '#16a34a');
+    }
+
+    // 重置为示例数据
     function resetTicket() {
-        document.getElementById('deviceName').value = '监护仪';
-        document.getElementById('assetNo').value = '12345';
-        document.getElementById('model').value = 'ipm8';
-        document.getElementById('location').value = '1床';
-        document.getElementById('manufacturer').value = '迈瑞';
-        document.getElementById('region').value = '';
-        document.getElementById('dept').value = '';
-        document.getElementById('ward').value = '';
-        document.getElementById('faultType').value = '软件问题';
-        document.getElementById('faultLevel').value = '紧急';
-        document.getElementById('impactScope').value = '单机';
-        document.getElementById('repairMethod').value = '院内维修';
-        document.getElementById('faultTime').value = '2026-07-11T14:30';
-        document.getElementById('faultDesc').value = '设备坏了，无法开机';
-        document.getElementById('reporter').value = '系统管理员';
-        document.getElementById('phone').value = '12345789';
-        document.getElementById('submitTime').value = '2026-07-11T15:53';
-        document.getElementById('slaDeadline').value = '2026-07-12T15:53';
+        if (!confirm('重置为示例数据？当前数据将被覆盖。')) return;
+        ticketData = { ...defaultTicket };
+        operations = [...defaultOps];
+        saveData();
+        renderTicket();
+        renderOperations();
+        // 重置操作表单
+        document.getElementById('opContent').value = '';
+        document.getElementById('charCounter').textContent = '0';
+        document.getElementById('opStatus').selectedIndex = 3;
+        document.getElementById('opEngineer').value = '张伟';
         showToast('已重置为示例数据', '#64748b');
     }
 
-    // ---- 提交操作 ----
+    // 清空所有（包括工单和操作记录）
+    function clearAll() {
+        if (!confirm('确认清空所有数据？此操作不可撤销！')) return;
+        const emptyTicket = {};
+        fieldIds.forEach(id => { emptyTicket[id] = ''; });
+        ticketData = emptyTicket;
+        operations = [];
+        saveData();
+        renderTicket();
+        renderOperations();
+        document.getElementById('opContent').value = '';
+        document.getElementById('charCounter').textContent = '0';
+        document.getElementById('opStatus').selectedIndex = 3;
+        document.getElementById('opEngineer').value = '';
+        showToast('已清空所有数据', '#64748b');
+    }
+
+    // 提交操作
     function submitOperation() {
         const content = document.getElementById('opContent').value.trim();
         if (!content) {
@@ -627,63 +839,41 @@
         }
         const status = document.getElementById('opStatus').value;
         const engineer = document.getElementById('opEngineer').value.trim() || '未知';
-
-        // 模拟提交成功
-        showToast(`✅ 操作已提交 (${status})`, '#16a34a');
-        console.log({ content, status, engineer });
-
-        // 追加到历史记录
-        appendLog(content, status, engineer);
-
-        // 清空处理内容（可选）
-        document.getElementById('opContent').value = '';
-        counter.textContent = '0';
-    }
-
-    // ---- 追加日志 ----
-    function appendLog(content, status, engineer) {
-        const logContainer = document.getElementById('logList');
-        const statusMap = {
-            '维修完成': { bg: '#dcfce7', color: '#15803d', label: '已完成' },
-            '待备件': { bg: '#fef3c7', color: '#b45309', label: '待备件' },
-            '转外修': { bg: '#fce7f3', color: '#be185d', label: '转外修' },
-            '暂无法修复': { bg: '#fee2e2', color: '#b91c1c', label: '暂无法修复' },
-            '其他': { bg: '#f1f5f9', color: '#475569', label: '其他' },
+        const now = new Date().toLocaleString('zh-CN', { hour12: false });
+        const newOp = {
+            engineer: engineer,
+            time: now,
+            status: status,
+            content: content
         };
-        const s = statusMap[status] || statusMap['其他'];
-        const newItem = document.createElement('div');
-        newItem.className = 'log-item';
-        newItem.innerHTML = `
-            <div class="avatar">${engineer.charAt(0)}</div>
-            <div class="log-content">
-                <div class="log-meta">
-                    <span class="name">${engineer}</span>
-                    <span>·</span>
-                    <span>${new Date().toLocaleString('zh-CN')}</span>
-                    <span class="tag" style="background:${s.bg};color:${s.color};">${s.label}</span>
-                </div>
-                <div class="log-text">${content}</div>
-            </div>
-        `;
-        logContainer.prepend(newItem); // 新记录添加到最前面
-        // 保持最多6条
-        while (logContainer.children.length > 6) {
-            logContainer.lastChild.remove();
+        operations.push(newOp);
+        // 限制最多20条
+        if (operations.length > 20) {
+            operations = operations.slice(-20);
         }
+        saveData();
+        renderOperations();
+        // 清空输入
+        document.getElementById('opContent').value = '';
+        document.getElementById('charCounter').textContent = '0';
+        showToast(`✅ 操作已提交 (${status})`, '#16a34a');
+        console.log('新操作：', newOp);
     }
 
-    // ---- 重置操作表单 ----
+    // 重置操作表单
     function resetOpForm() {
         document.getElementById('opContent').value = '';
-        counter.textContent = '0';
-        document.getElementById('opStatus').selectedIndex = 3; // 暂无法修复
-        document.getElementById('opEngineer').value = '张伟';
+        document.getElementById('charCounter').textContent = '0';
+        document.getElementById('opStatus').selectedIndex = 3;
+        document.getElementById('opEngineer').value = '';
         const fileInput = document.querySelector('.file-upload input[type="file"]');
         if (fileInput) fileInput.value = '';
         showToast('已重置操作表单', '#64748b');
     }
 
-    // ---- Toast ----
+    // ================================================================
+    // Toast 提示
+    // ================================================================
     function showToast(msg, color = '#2563eb') {
         const old = document.querySelector('.custom-toast');
         if (old) old.remove();
@@ -698,9 +888,35 @@
         }, 2500);
     }
 
-    // 初始化计数器
-    document.addEventListener('DOMContentLoaded', () => {
+    // ================================================================
+    // 初始化
+    // ================================================================
+    document.addEventListener('DOMContentLoaded', function() {
+        loadData();
+        renderTicket();
+        renderOperations();
+
+        // 字符计数器
+        const textarea = document.getElementById('opContent');
+        const counter = document.getElementById('charCounter');
+        textarea.addEventListener('input', function() {
+            counter.textContent = this.value.length;
+        });
         counter.textContent = textarea.value.length;
+
+        // 监听表单字段变化，自动更新 ticketData（但不自动保存）
+        fieldIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('change', function() {
+                    // 只是同步到 ticketData，但不保存到 localStorage（用户点击保存才保存）
+                    ticketData[id] = this.value;
+                });
+                el.addEventListener('input', function() {
+                    ticketData[id] = this.value;
+                });
+            }
+        });
     });
 </script>
 

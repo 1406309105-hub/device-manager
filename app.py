@@ -2083,149 +2083,178 @@ def repair_page():
                             st.rerun()
                 
                 elif current_status == "工程师接单":
-                    # 接单成功后的提示
-                    st.success("✅ 您已接单，请填写维修记录")
-                    st.markdown("---")
-                    
-                    # ===== 维修记录单 =====
-                    st.markdown("## 📋 维修记录单")
-                    
-                    with st.form(key=f"repair_form_{r['id']}"):
-                        # 工单编号
-                        st.markdown(f"**No.** {r.get('工单号', '')}")
-                        st.markdown("---")
-                        
-                        # 第一行：科室/设备信息
-                        col1, col2, col3, col4, col5 = st.columns(5)
-                        with col1:
-                            st.text_input("科室名称", value=repair_info.get('报修科室', ''), disabled=True)
-                        with col2:
-                            st.text_input("设备名称", value=device_info.get('设备名称', ''), disabled=True)
-                        with col3:
-                            system_no = st.text_input("系统编号", value="", placeholder="请输入")
-                        with col4:
-                            qr_code = st.text_input("二维码编号", value="", placeholder="请输入")
-                        with col5:
-                            st.text_input("设备厂家", value=device_info.get('生产厂家', ''), disabled=True)
-                        
-                        # 第二行：设备详细信息
-                        col1, col2, col3, col4, col5 = st.columns(5)
-                        with col1:
-                            st.text_input("派工单号", value=r.get('工单号', ''), disabled=True)
-                        with col2:
-                            st.text_input("设备型号", value=device_info.get('设备型号', ''), disabled=True)
-                        with col3:
-                            st.text_input("序列号", value=device_info.get('资产编号', ''), disabled=True)
-                        with col4:
-                            st.text_input("设备编号", value=device_info.get('资产ID', '')[:12], disabled=True)
-                        with col5:
-                            production_date = st.text_input("生产日期", value="", placeholder="例如：2021.3.1")
-                        
-                        st.markdown("---")
-                        
-                        # 第三行：服务类型 + 设备状态 + 故障原因
-                        col1, col2, col3 = st.columns([1, 2, 2])
-                        with col1:
-                            st.markdown("**服务类型**")
-                            st.text_input("", value="自修", disabled=True, key=f"service_type_{r['id']}")
-                        
-                        with col2:
-                            st.markdown("**设备状态**")
-                            device_status = st.radio(
-                                "",
-                                ["正常使用", "完全停机", "局部使用"],
-                                horizontal=True,
-                                key=f"device_status_{r['id']}"
-                            )
-                        
-                        with col3:
-                            st.markdown("**故障或服务原因**")
-                            fault_reason = st.text_input("", value=fault_info.get('故障描述', '')[:50], key=f"fault_reason_{r['id']}")
-                        
-                        st.markdown("---")
-                        
-                        # 时间信息
-                        col1, col2, col3, col4, col5 = st.columns(5)
-                        with col1:
-                            report_time = st.text_input("报修时间", value=sys_info.get('提交时间', '').split()[0] if sys_info.get('提交时间') else "", disabled=True)
-                        with col2:
-                            arrive_time = st.date_input("到达时间", value=datetime.now().date(), key=f"arrive_time_{r['id']}")
-                        with col3:
-                            work_date = st.date_input("日期", value=datetime.now().date(), key=f"work_date_{r['id']}")
-                        with col4:
-                            start_time = st.time_input("开始时间", value=datetime.now().time(), key=f"start_time_{r['id']}")
-                        with col5:
-                            end_time = st.time_input("结束时间", value=datetime.now().time(), key=f"end_time_{r['id']}")
-                        
-                        st.markdown("---")
-                        
-                        # 服务内容
-                        st.markdown("**服务内容**")
-                        service_content = st.text_area(
-                            "",
-                            height=80,
-                            placeholder="请详细描述维修服务内容...",
-                            key=f"service_content_{r['id']}"
-                        )
-                        
-                        st.markdown("---")
-                        
-                        # 备件使用记录表格
-                        st.markdown("**备件使用记录**")
-                        part_rows = st.session_state.get(f"part_rows_{r['id']}", 1)
-                        
-                        part_data = []
-                        for i in range(part_rows):
-                            col1, col2, col3, col4, col5 = st.columns([1.5, 2, 1.5, 1, 2])
-                            with col1:
-                                part_no = st.text_input("备件号", key=f"part_no_{r['id']}_{i}")
-                            with col2:
-                                part_name = st.text_input("备件名称", key=f"part_name_{r['id']}_{i}")
-                            with col3:
-                                part_sn = st.text_input("序列号", key=f"part_sn_{r['id']}_{i}")
-                            with col4:
-                                part_qty = st.number_input("数量", min_value=0, step=1, key=f"part_qty_{r['id']}_{i}", value=0)
-                            with col5:
-                                part_note = st.text_input("备注", key=f"part_note_{r['id']}_{i}")
-                            
-                            if part_no or part_name:
-                                part_data.append({
-                                    "备件号": part_no,
-                                    "备件名称": part_name,
-                                    "序列号": part_sn,
-                                    "数量": part_qty,
-                                    "备注": part_note
-                                })
-                        
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            if st.button("➕ 添加备件行", key=f"add_part_row_{r['id']}"):
-                                st.session_state[f"part_rows_{r['id']}"] = part_rows + 1
-                                st.rerun()
-                        with col2:
-                            if part_rows > 1 and st.button("➖ 删除备件行", key=f"del_part_row_{r['id']}"):
-                                st.session_state[f"part_rows_{r['id']}"] = part_rows - 1
-                                st.rerun()
-                        
-                        st.markdown("---")
-                        
-                        # 服务结果及建议
-                        st.markdown("**服务结果及建议**")
-                        service_result = st.text_area(
-                            "",
-                            height=60,
-                            placeholder="请描述服务结果及建议...",
-                            key=f"service_result_{r['id']}"
-                        )
-                        
-                        st.markdown("---")
-                        
-                        # 提交按钮
-                        submitted_repair = st.form_submit_button("✅ 提交维修记录", type="primary")
-                        
-                        if submitted_repair:
-                            if not service_content and not service_result:
-                                st.error("请至少填写服务内容或服务结果")
+    st.success("✅ 您已接单，请填写维修记录")
+    st.markdown("---")
+    
+    st.markdown("## 📋 维修记录单")
+    
+    with st.form(key=f"repair_form_{r['id']}"):
+        # 工单编号
+        st.markdown(f"**No.** {r.get('工单号', '')}")
+        st.markdown("---")
+        
+        # 第一行：科室/设备信息
+        col1, col2, col3, col4, col5 = st.columns(5)
+        with col1:
+            st.text_input("科室名称", value=repair_info.get('报修科室', ''), disabled=True)
+        with col2:
+            st.text_input("设备名称", value=device_info.get('设备名称', ''), disabled=True)
+        with col3:
+            system_no = st.text_input("系统编号", value="", placeholder="请输入")
+        with col4:
+            qr_code = st.text_input("二维码编号", value="", placeholder="请输入")
+        with col5:
+            st.text_input("设备厂家", value=device_info.get('生产厂家', ''), disabled=True)
+        
+        # 第二行：设备详细信息
+        col1, col2, col3, col4, col5 = st.columns(5)
+        with col1:
+            st.text_input("派工单号", value=r.get('工单号', ''), disabled=True)
+        with col2:
+            st.text_input("设备型号", value=device_info.get('设备型号', ''), disabled=True)
+        with col3:
+            st.text_input("序列号", value=device_info.get('资产编号', ''), disabled=True)
+        with col4:
+            st.text_input("设备编号", value=device_info.get('资产ID', '')[:12], disabled=True)
+        with col5:
+            production_date = st.text_input("生产日期", value="", placeholder="例如：2021.3.1")
+        
+        st.markdown("---")
+        
+        # 第三行：服务类型 + 设备状态 + 故障原因
+        col1, col2, col3 = st.columns([1, 2, 2])
+        with col1:
+            st.markdown("**服务类型**")
+            st.text_input("", value="自修", disabled=True, key=f"service_type_{r['id']}")
+        
+        with col2:
+            st.markdown("**设备状态**")
+            device_status = st.radio(
+                "",
+                ["正常使用", "完全停机", "局部使用"],
+                horizontal=True,
+                key=f"device_status_{r['id']}"
+            )
+        
+        with col3:
+            st.markdown("**故障或服务原因**")
+            fault_reason = st.text_input("", value=fault_info.get('故障描述', '')[:50], key=f"fault_reason_{r['id']}")
+        
+        st.markdown("---")
+        
+        # 时间信息
+        col1, col2, col3, col4, col5 = st.columns(5)
+        with col1:
+            report_time = st.text_input("报修时间", value=sys_info.get('提交时间', '').split()[0] if sys_info.get('提交时间') else "", disabled=True)
+        with col2:
+            arrive_time = st.date_input("到达时间", value=datetime.now().date(), key=f"arrive_time_{r['id']}")
+        with col3:
+            work_date = st.date_input("日期", value=datetime.now().date(), key=f"work_date_{r['id']}")
+        with col4:
+            start_time = st.time_input("开始时间", value=datetime.now().time(), key=f"start_time_{r['id']}")
+        with col5:
+            end_time = st.time_input("结束时间", value=datetime.now().time(), key=f"end_time_{r['id']}")
+        
+        st.markdown("---")
+        
+        # 服务内容
+        st.markdown("**服务内容**")
+        service_content = st.text_area(
+            "",
+            height=80,
+            placeholder="请详细描述维修服务内容...",
+            key=f"service_content_{r['id']}"
+        )
+        
+        st.markdown("---")
+        
+        # 备件使用记录表格
+        st.markdown("**备件使用记录**")
+        part_rows = st.session_state.get(f"part_rows_{r['id']}", 1)
+        
+        part_data = []
+        for i in range(part_rows):
+            col1, col2, col3, col4, col5 = st.columns([1.5, 2, 1.5, 1, 2])
+            with col1:
+                part_no = st.text_input("备件号", key=f"part_no_{r['id']}_{i}")
+            with col2:
+                part_name = st.text_input("备件名称", key=f"part_name_{r['id']}_{i}")
+            with col3:
+                part_sn = st.text_input("序列号", key=f"part_sn_{r['id']}_{i}")
+            with col4:
+                part_qty = st.number_input("数量", min_value=0, step=1, key=f"part_qty_{r['id']}_{i}", value=0)
+            with col5:
+                part_note = st.text_input("备注", key=f"part_note_{r['id']}_{i}")
+            
+            if part_no or part_name:
+                part_data.append({
+                    "备件号": part_no,
+                    "备件名称": part_name,
+                    "序列号": part_sn,
+                    "数量": part_qty,
+                    "备注": part_note
+                })
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("➕ 添加备件行", key=f"add_part_row_{r['id']}"):
+                st.session_state[f"part_rows_{r['id']}"] = part_rows + 1
+                st.rerun()
+        with col2:
+            if part_rows > 1 and st.button("➖ 删除备件行", key=f"del_part_row_{r['id']}"):
+                st.session_state[f"part_rows_{r['id']}"] = part_rows - 1
+                st.rerun()
+        
+        st.markdown("---")
+        
+        # 服务结果及建议
+        st.markdown("**服务结果及建议**")
+        service_result = st.text_area(
+            "",
+            height=60,
+            placeholder="请描述服务结果及建议...",
+            key=f"service_result_{r['id']}"
+        )
+        
+        st.markdown("---")
+        
+        submitted_repair = st.form_submit_button("✅ 提交维修记录", type="primary")
+        
+        if submitted_repair:
+            if not service_content and not service_result:
+                st.error("请至少填写服务内容或服务结果")
+            else:
+                r['状态'] = "维修完成"
+                r['处理信息']['处理结果'] = service_result
+                r['处理信息']['服务内容'] = service_content
+                r['处理信息']['设备状态'] = device_status
+                r['处理信息']['故障原因'] = fault_reason
+                r['处理信息']['到达时间'] = arrive_time.strftime("%Y-%m-%d")
+                r['处理信息']['工作日期'] = work_date.strftime("%Y-%m-%d")
+                r['处理信息']['开始时间'] = start_time.strftime("%H:%M")
+                r['处理信息']['结束时间'] = end_time.strftime("%H:%M")
+                r['处理信息']['生产日期'] = production_date
+                r['处理信息']['系统编号'] = system_no
+                r['处理信息']['二维码编号'] = qr_code
+                r['处理信息']['备件清单'] = part_data
+                r['处理信息']['完成时间'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                
+                r['状态流转'].append({
+                    "状态": "维修完成",
+                    "操作人": st.session_state.username,
+                    "操作时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "备注": "维修完成，已提交记录"
+                })
+                
+                for d in st.session_state.devices:
+                    if d['id'] == r['设备信息']['资产ID']:
+                        d['status'] = "在用"
+                
+                save_data()
+                save_repair_records()
+                st.success("✅ 维修记录已提交，工单已完成！")
+                st.balloons()
+                st.rerun()
                             else:
                                 r['状态'] = "维修完成"
                                 r['处理信息']['处理结果'] = service_result
@@ -2260,23 +2289,23 @@ def repair_page():
                                 st.rerun()
                 
                 elif current_status == "维修完成":
-                    with col_btn1:
-                        if st.button("🔒 关闭工单", key=f"close_{r['id']}"):
-                            r['状态'] = "已关闭"
-                            r['状态流转'].append({
-                                "状态": "已关闭",
-                                "操作人": st.session_state.username,
-                                "操作时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                                "备注": "工单已关闭"
-                            })
-                            save_repair_records()
-                            st.success("工单已关闭")
-                            st.rerun()
-                    with col_btn2:
-                        if st.button("🗑️ 删除", key=f"del_{r['id']}"):
-                            st.session_state.repair_records = [rec for rec in st.session_state.repair_records if rec['id'] != r['id']]
-                            save_repair_records()
-                            st.rerun()
+    with col_btn1:
+        if st.button("🔒 关闭工单", key=f"close_{r['id']}"):
+            r['状态'] = "已关闭"
+            r['状态流转'].append({
+                "状态": "已关闭",
+                "操作人": st.session_state.username,
+                "操作时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "备注": "工单已关闭"
+            })
+            save_repair_records()
+            st.success("工单已关闭")
+            st.rerun()
+    with col_btn2:
+        if st.button("🗑️ 删除", key=f"del_{r['id']}"):
+            st.session_state.repair_records = [rec for rec in st.session_state.repair_records if rec['id'] != r['id']]
+            save_repair_records()
+            st.rerun()
                 
                 elif current_status == "已关闭":
                     with col_btn1:

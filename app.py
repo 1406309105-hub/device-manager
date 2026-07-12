@@ -1583,7 +1583,7 @@ def scan_repair_page():
                 st.rerun()
 
 
-# ==================== 维修工单 ====================
+# ==================== 维修工单（完整版，包含所有操作按钮） ====================
 def repair_page():
     st.subheader("🚨 维修工单管理")
     if st.session_state.get('quick_repair_mode', False):
@@ -1861,366 +1861,374 @@ def repair_page():
         st.dataframe(pd.DataFrame(table_data), use_container_width=True, hide_index=True)
         st.markdown("---")
         st.subheader("🔧 工单操作")
-        for status in REPAIR_STATUSES:
-            group = [r for r in filtered if r.get('状态') == status]
-            if not group:
-                continue
-            st.markdown(f"#### {status}工单 ({len(group)}条)")
-            for r in group:
-                device_info = r.get('设备信息', {})
-                fault_info = r.get('故障信息', {})
-                repair_info = r.get('报修信息', {})
-                sys_info = r.get('系统字段', {})
-                process_info = r.get('处理信息', {})
-                with st.expander(f"📋 {r.get('工单号', '')} - {device_info.get('设备名称', '')} ({fault_info.get('故障等级', '')})"):
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.write(f"**设备名称：** {device_info.get('设备名称', '')}")
-                        st.write(f"**资产编号：** {device_info.get('资产编号', '')}")
-                        st.write(f"**设备型号：** {device_info.get('设备型号', '')}")
-                        st.write(f"**存放位置：** {device_info.get('存放位置', '')}")
-                        st.write(f"**生产厂家：** {device_info.get('生产厂家', '')}")
-                        st.write(f"**所属区域：** {device_info.get('所属区域', '')}")
-                        st.write(f"**报修科室：** {repair_info.get('报修科室', '')}")
-                        st.write(f"**病区/房间号：** {repair_info.get('病区/房间号', '')}")
-                        st.write(f"**故障类型：** {', '.join(fault_info.get('故障类型', []))}")
-                        st.write(f"**故障等级：** {fault_info.get('故障等级', '')}")
-                        st.write(f"**影响范围：** {', '.join(fault_info.get('影响范围', []))}")
-                        st.write(f"**维修方式：** {repair_info.get('维修方式', '')}")
-                        st.write(f"**故障发生时间：** {repair_info.get('故障发生时间', '')}")
-                    with col2:
-                        st.write(f"**报修人：** {repair_info.get('报修人姓名', '')}")
-                        st.write(f"**联系电话：** {repair_info.get('联系电话', '')}")
-                        st.write(f"**提交时间：** {sys_info.get('提交时间', '')}")
-                        st.write(f"**SLA截止：** {sys_info.get('SLA截止时间', '')}")
-                        st.write(f"**当前状态：** {r.get('状态', '')}")
-                        if fault_info.get('故障图片'):
-                            st.write("**故障图片：**")
-                            for img_path in fault_info['故障图片'][:3]:
-                                if os.path.exists(img_path):
-                                    st.image(img_path, width=100)
-                        st.write("**状态流转历史：**")
-                        for log in r.get('状态流转', []):
-                            st.write(f"- {log.get('状态')} | {log.get('操作人')} | {log.get('操作时间')} | {log.get('备注', '')}")
-                    st.write(f"**故障描述：** {fault_info.get('故障描述', '')}")
-                    if process_info.get('处理结果'):
-                        st.write(f"**处理结果：** {process_info.get('处理结果', '')}")
-                        st.write(f"**维修费用：** ¥{process_info.get('维修费用', 0)}")
-                        if process_info.get('修复图片'):
-                            st.write("**修复图片：**")
-                            for img_path in process_info['修复图片']:
-                                if os.path.exists(img_path):
-                                    st.image(img_path, width=100)
-                    if process_info.get('配件清单'):
-                        st.write("**更换配件清单：**")
-                        for part in process_info['配件清单']:
-                            st.write(f"- {part.get('名称')} x{part.get('数量')} ({part.get('型号')}) 旧件去向：{part.get('旧件去向')}")
-                    
-                    # 知识库推荐
-                    fault_desc = fault_info.get('故障描述', '')
-                    if fault_desc and r.get('状态') not in ['维修完成', '已关闭']:
-                        st.markdown("### 📚 知识库推荐")
-                        keywords = fault_desc.split()[:3]
-                        matched_kb = []
-                        for k in st.session_state.knowledge_base:
-                            for kw in keywords:
-                                if kw in k['title'] or kw in k['content']:
-                                    matched_kb.append(k)
-                                    break
-                        if matched_kb:
-                            st.caption(f"找到 {len(matched_kb)} 条相关维修方案")
-                            for kb in matched_kb[:2]:
-                                with st.expander(f"📖 {kb['title']}"):
-                                    st.write(kb['content'])
-                                    if st.button("使用此方案", key=f"use_kb_{kb['id']}_{r.get('id','')}"):
-                                        st.success("已应用方案到处理结果")
-                    
-                    # 历史故障推荐
-                    device_model = device_info.get('设备型号', '')
-                    if device_model and r.get('状态') not in ['维修完成', '已关闭']:
-                        similar_records = [rec for rec in st.session_state.repair_records 
-                                           if rec.get('设备信息', {}).get('设备型号') == device_model 
-                                           and rec.get('状态') in ['维修完成', '已关闭']
-                                           and rec.get('工单号') != r.get('工单号')]
-                        if similar_records:
-                            st.markdown("### 💡 同型号历史方案")
-                            for sr in similar_records[-2:]:
-                                with st.expander(f"📋 {sr.get('工单号')} - {sr.get('故障信息', {}).get('故障等级', '')}级"):
-                                    st.write(f"**故障现象：** {sr.get('故障信息', {}).get('故障描述', '')[:80]}...")
-                                    st.write(f"**处理方案：** {sr.get('处理信息', {}).get('处理结果', '暂无')}")
-                    
-                    # 操作按钮
-                    current_status = r.get('状态', '')
-                    col_btn1, col_btn2, col_btn3, col_btn4 = st.columns(4)
-                    
-                    if current_status == "已提交":
-                        with col_btn1:
-                            if st.button("派单", key=f"dispatch_{r['id']}"):
-                                r['状态'] = "已派单"
-                                r['状态流转'].append({
-                                    "状态": "已派单",
-                                    "操作人": st.session_state.username,
-                                    "操作时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                                    "备注": "已派单"
-                                })
-                                save_repair_records()
-                                st.rerun()
-                        with col_btn2:
-                            if st.button("删除", key=f"del_{r['id']}"):
-                                for d in st.session_state.devices:
-                                    if d['id'] == r['设备信息']['资产ID']:
-                                        d['status'] = "在用"
-                                st.session_state.repair_records = [rec for rec in st.session_state.repair_records if rec['id'] != r['id']]
-                                save_data()
-                                save_repair_records()
-                                st.rerun()
-                    
-                    elif current_status == "已派单":
-                        with col_btn1:
-                            if st.button("接单", key=f"accept_{r['id']}"):
-                                r['状态'] = "工程师接单"
-                                r['处理信息']['处理人'] = st.session_state.username
-                                r['状态流转'].append({
-                                    "状态": "工程师接单",
-                                    "操作人": st.session_state.username,
-                                    "操作时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                                    "备注": f"工程师 {st.session_state.username} 接单"
-                                })
-                                save_repair_records()
-                                st.rerun()
-                        with col_btn2:
-                            with st.popover("改派"):
-                                new_engineer = st.text_input("改派工程师", key=f"reassign_{r['id']}")
-                                reason = st.text_area("改派原因", key=f"reason_{r['id']}")
-                                if st.button("确认改派", key=f"confirm_reassign_{r['id']}"):
-                                    if new_engineer and reason:
-                                        r['状态'] = "已派单"
-                                        r['状态流转'].append({
-                                            "状态": "已派单",
-                                            "操作人": st.session_state.username,
-                                            "操作时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                                            "备注": f"改派给 {new_engineer}，原因：{reason}"
-                                        })
-                                        save_repair_records()
-                                        st.success(f"已改派给 {new_engineer}")
-                                        st.rerun()
-                                    else:
-                                        st.error("请填写工程师和改派原因")
-                        with col_btn3:
-                            if st.button("删除", key=f"del_{r['id']}"):
-                                for d in st.session_state.devices:
-                                    if d['id'] == r['设备信息']['资产ID']:
-                                        d['status'] = "在用"
-                                st.session_state.repair_records = [rec for rec in st.session_state.repair_records if rec['id'] != r['id']]
-                                save_data()
-                                save_repair_records()
-                                st.rerun()
-                    
-                    elif current_status == "工程师接单":
-                        # 直接显示维修执行表单
-                        st.markdown("### 🔧 维修执行")
-                        with st.form(key=f"repair_exec_form_{r['id']}"):
-                            st.markdown("**📸 维修照片**")
-                            c1, c2, c3 = st.columns(3)
-                            with c1:
-                                before_photos = st.file_uploader("维修前", type=["jpg","png"], accept_multiple_files=True, key=f"before_{r['id']}")
-                            with c2:
-                                during_photos = st.file_uploader("维修中", type=["jpg","png"], accept_multiple_files=True, key=f"during_{r['id']}")
-                            with c3:
-                                after_photos = st.file_uploader("维修后", type=["jpg","png"], accept_multiple_files=True, key=f"after_{r['id']}")
-                            
-                            st.markdown("**🔩 配件登记**")
-                            col_p1, col_p2, col_p3 = st.columns(3)
-                            with col_p1:
-                                part_name = st.text_input("配件名称", key=f"pname_{r['id']}")
-                                part_qty = st.number_input("数量", min_value=1, value=1, key=f"pqty_{r['id']}")
-                            with col_p2:
-                                part_model = st.text_input("配件编号/型号", key=f"pmodel_{r['id']}")
-                                part_unit = st.selectbox("单位", ["个", "根", "片", "套", "块"], key=f"punit_{r['id']}")
-                            with col_p3:
-                                old_part_status = st.selectbox("旧件去向", ["报废", "回收", "返厂"], key=f"pstatus_{r['id']}")
-                            if st.button("登记配件", key=f"add_part_{r['id']}"):
-                                if part_name:
-                                    if '配件清单' not in r['处理信息']:
-                                        r['处理信息']['配件清单'] = []
-                                    r['处理信息']['配件清单'].append({
-                                        "名称": part_name,
-                                        "型号": part_model,
-                                        "数量": part_qty,
-                                        "单位": part_unit,
-                                        "旧件去向": old_part_status,
-                                        "登记人": st.session_state.username,
-                                        "登记时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                                    })
-                                    save_repair_records()
-                                    st.success("配件已登记")
-                                    st.rerun()
-                            
-                            fault_reason = st.text_input("故障原因分析", key=f"freason_{r['id']}")
-                            measures = st.text_area("处理措施描述", key=f"measures_{r['id']}", placeholder="请描述具体处理措施")
-                            repair_cost = st.number_input("维修费用(元)", min_value=0, step=10, key=f"cost_{r['id']}")
-                            
-                            submitted_repair = st.form_submit_button("✅ 提交维修记录并完成工单")
-                            if submitted_repair:
-                                if not measures:
-                                    st.error("请填写处理措施描述")
-                                else:
-                                    img_paths_before = [save_photo(img, f"before_{r['id'][:8]}") for img in before_photos[:5] if img]
-                                    img_paths_during = [save_photo(img, f"during_{r['id'][:8]}") for img in during_photos[:5] if img]
-                                    img_paths_after = [save_photo(img, f"after_{r['id'][:8]}") for img in after_photos[:5] if img]
-                                    r['状态'] = "维修完成"
-                                    r['处理信息']['维修前照片'] = img_paths_before
-                                    r['处理信息']['维修中照片'] = img_paths_during
-                                    r['处理信息']['维修后照片'] = img_paths_after
-                                    r['处理信息']['维修费用'] = repair_cost
-                                    r['处理信息']['处理结果'] = measures
-                                    r['处理信息']['故障原因分析'] = fault_reason
-                                    r['处理信息']['处理措施'] = measures
-                                    r['处理信息']['完成时间'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # 遍历每个工单
+        for r in filtered:
+            device_info = r.get('设备信息', {})
+            fault_info = r.get('故障信息', {})
+            repair_info = r.get('报修信息', {})
+            sys_info = r.get('系统字段', {})
+            process_info = r.get('处理信息', {})
+            
+            # ⭐ 关键：用 expander 展开工单，操作按钮都在里面
+            with st.expander(f"📋 {r.get('工单号', '')} - {device_info.get('设备名称', '')} ({fault_info.get('故障等级', '')})"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.write(f"**设备名称：** {device_info.get('设备名称', '')}")
+                    st.write(f"**资产编号：** {device_info.get('资产编号', '')}")
+                    st.write(f"**设备型号：** {device_info.get('设备型号', '')}")
+                    st.write(f"**存放位置：** {device_info.get('存放位置', '')}")
+                    st.write(f"**生产厂家：** {device_info.get('生产厂家', '')}")
+                    st.write(f"**所属区域：** {device_info.get('所属区域', '')}")
+                    st.write(f"**报修科室：** {repair_info.get('报修科室', '')}")
+                    st.write(f"**病区/房间号：** {repair_info.get('病区/房间号', '')}")
+                    st.write(f"**故障类型：** {', '.join(fault_info.get('故障类型', []))}")
+                    st.write(f"**故障等级：** {fault_info.get('故障等级', '')}")
+                    st.write(f"**影响范围：** {', '.join(fault_info.get('影响范围', []))}")
+                    st.write(f"**维修方式：** {repair_info.get('维修方式', '')}")
+                    st.write(f"**故障发生时间：** {repair_info.get('故障发生时间', '')}")
+                with col2:
+                    st.write(f"**报修人：** {repair_info.get('报修人姓名', '')}")
+                    st.write(f"**联系电话：** {repair_info.get('联系电话', '')}")
+                    st.write(f"**提交时间：** {sys_info.get('提交时间', '')}")
+                    st.write(f"**SLA截止：** {sys_info.get('SLA截止时间', '')}")
+                    st.write(f"**当前状态：** {r.get('状态', '')}")
+                    if fault_info.get('故障图片'):
+                        st.write("**故障图片：**")
+                        for img_path in fault_info['故障图片'][:3]:
+                            if os.path.exists(img_path):
+                                st.image(img_path, width=100)
+                    st.write("**状态流转历史：**")
+                    for log in r.get('状态流转', []):
+                        st.write(f"- {log.get('状态')} | {log.get('操作人')} | {log.get('操作时间')} | {log.get('备注', '')}")
+                st.write(f"**故障描述：** {fault_info.get('故障描述', '')}")
+                
+                if process_info.get('处理结果'):
+                    st.write(f"**处理结果：** {process_info.get('处理结果', '')}")
+                    st.write(f"**维修费用：** ¥{process_info.get('维修费用', 0)}")
+                    if process_info.get('修复图片'):
+                        st.write("**修复图片：**")
+                        for img_path in process_info['修复图片']:
+                            if os.path.exists(img_path):
+                                st.image(img_path, width=100)
+                if process_info.get('配件清单'):
+                    st.write("**更换配件清单：**")
+                    for part in process_info['配件清单']:
+                        st.write(f"- {part.get('名称')} x{part.get('数量')} ({part.get('型号')}) 旧件去向：{part.get('旧件去向')}")
+                
+                # ===== 当前状态和操作按钮 =====
+                current_status = r.get('状态', '')
+                
+                # 知识库推荐
+                fault_desc = fault_info.get('故障描述', '')
+                if fault_desc and current_status not in ['维修完成', '已关闭']:
+                    st.markdown("### 📚 知识库推荐")
+                    keywords = fault_desc.split()[:3]
+                    matched_kb = []
+                    for k in st.session_state.knowledge_base:
+                        for kw in keywords:
+                            if kw in k['title'] or kw in k['content']:
+                                matched_kb.append(k)
+                                break
+                    if matched_kb:
+                        st.caption(f"找到 {len(matched_kb)} 条相关维修方案")
+                        for kb in matched_kb[:2]:
+                            with st.expander(f"📖 {kb['title']}"):
+                                st.write(kb['content'])
+                                if st.button("使用此方案", key=f"use_kb_{kb['id']}_{r.get('id','')}"):
+                                    st.success("已应用方案到处理结果")
+                
+                # 历史故障推荐
+                device_model = device_info.get('设备型号', '')
+                if device_model and current_status not in ['维修完成', '已关闭']:
+                    similar_records = [rec for rec in st.session_state.repair_records 
+                                       if rec.get('设备信息', {}).get('设备型号') == device_model 
+                                       and rec.get('状态') in ['维修完成', '已关闭']
+                                       and rec.get('工单号') != r.get('工单号')]
+                    if similar_records:
+                        st.markdown("### 💡 同型号历史方案")
+                        for sr in similar_records[-2:]:
+                            with st.expander(f"📋 {sr.get('工单号')} - {sr.get('故障信息', {}).get('故障等级', '')}级"):
+                                st.write(f"**故障现象：** {sr.get('故障信息', {}).get('故障描述', '')[:80]}...")
+                                st.write(f"**处理方案：** {sr.get('处理信息', {}).get('处理结果', '暂无')}")
+                
+                # ⭐ 操作按钮（根据状态显示）
+                st.markdown("---")
+                st.markdown("#### 操作")
+                
+                col_btn1, col_btn2, col_btn3, col_btn4 = st.columns(4)
+                
+                if current_status == "已提交":
+                    with col_btn1:
+                        if st.button("📤 派单", key=f"dispatch_{r['id']}"):
+                            r['状态'] = "已派单"
+                            r['状态流转'].append({
+                                "状态": "已派单",
+                                "操作人": st.session_state.username,
+                                "操作时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                "备注": "已派单"
+                            })
+                            save_repair_records()
+                            st.success("✅ 已派单！")
+                            st.rerun()
+                    with col_btn2:
+                        if st.button("🗑️ 删除", key=f"del_{r['id']}"):
+                            for d in st.session_state.devices:
+                                if d['id'] == r['设备信息']['资产ID']:
+                                    d['status'] = "在用"
+                            st.session_state.repair_records = [rec for rec in st.session_state.repair_records if rec['id'] != r['id']]
+                            save_data()
+                            save_repair_records()
+                            st.success("工单已删除")
+                            st.rerun()
+                
+                elif current_status == "已派单":
+                    with col_btn1:
+                        if st.button("✅ 接单", key=f"accept_{r['id']}"):
+                            r['状态'] = "工程师接单"
+                            r['处理信息']['处理人'] = st.session_state.username
+                            r['状态流转'].append({
+                                "状态": "工程师接单",
+                                "操作人": st.session_state.username,
+                                "操作时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                "备注": f"工程师 {st.session_state.username} 接单"
+                            })
+                            save_repair_records()
+                            st.success("✅ 已接单！")
+                            st.rerun()
+                    with col_btn2:
+                        with st.popover("🔄 改派"):
+                            new_engineer = st.text_input("改派工程师", key=f"reassign_{r['id']}")
+                            reason = st.text_area("改派原因", key=f"reason_{r['id']}")
+                            if st.button("确认改派", key=f"confirm_reassign_{r['id']}"):
+                                if new_engineer and reason:
+                                    r['状态'] = "已派单"
                                     r['状态流转'].append({
-                                        "状态": "维修完成",
+                                        "状态": "已派单",
                                         "操作人": st.session_state.username,
                                         "操作时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                                        "备注": f"维修完成，费用：{repair_cost}"
+                                        "备注": f"改派给 {new_engineer}，原因：{reason}"
                                     })
-                                    for d in st.session_state.devices:
-                                        if d['id'] == r['设备信息']['资产ID']:
-                                            d['status'] = "在用"
-                                    save_data()
                                     save_repair_records()
-                                    st.success("维修记录已提交，工单已完成！")
+                                    st.success(f"已改派给 {new_engineer}")
                                     st.rerun()
+                                else:
+                                    st.error("请填写工程师和改派原因")
+                    with col_btn3:
+                        if st.button("🗑️ 删除", key=f"del_{r['id']}"):
+                            for d in st.session_state.devices:
+                                if d['id'] == r['设备信息']['资产ID']:
+                                    d['status'] = "在用"
+                            st.session_state.repair_records = [rec for rec in st.session_state.repair_records if rec['id'] != r['id']]
+                            save_data()
+                            save_repair_records()
+                            st.rerun()
+                
+                elif current_status == "工程师接单":
+                    # 显示维修执行表单
+                    st.markdown("### 🔧 维修执行")
+                    with st.form(key=f"repair_exec_form_{r['id']}"):
+                        st.markdown("**📸 维修照片**")
+                        c1, c2, c3 = st.columns(3)
+                        with c1:
+                            before_photos = st.file_uploader("维修前", type=["jpg","png"], accept_multiple_files=True, key=f"before_{r['id']}")
+                        with c2:
+                            during_photos = st.file_uploader("维修中", type=["jpg","png"], accept_multiple_files=True, key=f"during_{r['id']}")
+                        with c3:
+                            after_photos = st.file_uploader("维修后", type=["jpg","png"], accept_multiple_files=True, key=f"after_{r['id']}")
                         
-                        # 保留上门检修按钮
-                        with col_btn1:
-                            if st.button("上门检修", key=f"visit_{r['id']}"):
-                                r['状态'] = "上门检修中"
-                                r['状态流转'].append({
-                                    "状态": "上门检修中",
-                                    "操作人": st.session_state.username,
-                                    "操作时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                                    "备注": "工程师已出发"
+                        st.markdown("**🔩 配件登记**")
+                        col_p1, col_p2, col_p3 = st.columns(3)
+                        with col_p1:
+                            part_name = st.text_input("配件名称", key=f"pname_{r['id']}")
+                            part_qty = st.number_input("数量", min_value=1, value=1, key=f"pqty_{r['id']}")
+                        with col_p2:
+                            part_model = st.text_input("配件编号/型号", key=f"pmodel_{r['id']}")
+                            part_unit = st.selectbox("单位", ["个", "根", "片", "套", "块"], key=f"punit_{r['id']}")
+                        with col_p3:
+                            old_part_status = st.selectbox("旧件去向", ["报废", "回收", "返厂"], key=f"pstatus_{r['id']}")
+                        if st.button("登记配件", key=f"add_part_{r['id']}"):
+                            if part_name:
+                                if '配件清单' not in r['处理信息']:
+                                    r['处理信息']['配件清单'] = []
+                                r['处理信息']['配件清单'].append({
+                                    "名称": part_name,
+                                    "型号": part_model,
+                                    "数量": part_qty,
+                                    "单位": part_unit,
+                                    "旧件去向": old_part_status,
+                                    "登记人": st.session_state.username,
+                                    "登记时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                                 })
                                 save_repair_records()
+                                st.success("配件已登记")
                                 st.rerun()
-                        with col_btn2:
-                            if st.button("删除", key=f"del_{r['id']}"):
+                        
+                        fault_reason = st.text_input("故障原因分析", key=f"freason_{r['id']}")
+                        measures = st.text_area("处理措施描述", key=f"measures_{r['id']}", placeholder="请描述具体处理措施")
+                        repair_cost = st.number_input("维修费用(元)", min_value=0, step=10, key=f"cost_{r['id']}")
+                        
+                        submitted_repair = st.form_submit_button("✅ 提交维修记录并完成工单")
+                        if submitted_repair:
+                            if not measures:
+                                st.error("请填写处理措施描述")
+                            else:
+                                img_paths_before = [save_photo(img, f"before_{r['id'][:8]}") for img in before_photos[:5] if img]
+                                img_paths_during = [save_photo(img, f"during_{r['id'][:8]}") for img in during_photos[:5] if img]
+                                img_paths_after = [save_photo(img, f"after_{r['id'][:8]}") for img in after_photos[:5] if img]
+                                r['状态'] = "维修完成"
+                                r['处理信息']['维修前照片'] = img_paths_before
+                                r['处理信息']['维修中照片'] = img_paths_during
+                                r['处理信息']['维修后照片'] = img_paths_after
+                                r['处理信息']['维修费用'] = repair_cost
+                                r['处理信息']['处理结果'] = measures
+                                r['处理信息']['故障原因分析'] = fault_reason
+                                r['处理信息']['处理措施'] = measures
+                                r['处理信息']['完成时间'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                r['状态流转'].append({
+                                    "状态": "维修完成",
+                                    "操作人": st.session_state.username,
+                                    "操作时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                    "备注": f"维修完成，费用：{repair_cost}"
+                                })
                                 for d in st.session_state.devices:
                                     if d['id'] == r['设备信息']['资产ID']:
                                         d['status'] = "在用"
-                                st.session_state.repair_records = [rec for rec in st.session_state.repair_records if rec['id'] != r['id']]
                                 save_data()
                                 save_repair_records()
+                                st.success("维修记录已提交，工单已完成！")
                                 st.rerun()
                     
-                    elif current_status == "上门检修中":
-                        # 同样显示维修执行表单
-                        st.markdown("### 🔧 维修执行")
-                        with st.form(key=f"repair_exec_form2_{r['id']}"):
-                            st.markdown("**📸 维修照片**")
-                            c1, c2, c3 = st.columns(3)
-                            with c1:
-                                before_photos = st.file_uploader("维修前", type=["jpg","png"], accept_multiple_files=True, key=f"before2_{r['id']}")
-                            with c2:
-                                during_photos = st.file_uploader("维修中", type=["jpg","png"], accept_multiple_files=True, key=f"during2_{r['id']}")
-                            with c3:
-                                after_photos = st.file_uploader("维修后", type=["jpg","png"], accept_multiple_files=True, key=f"after2_{r['id']}")
-                            
-                            st.markdown("**🔩 配件登记**")
-                            col_p1, col_p2, col_p3 = st.columns(3)
-                            with col_p1:
-                                part_name = st.text_input("配件名称", key=f"pname2_{r['id']}")
-                                part_qty = st.number_input("数量", min_value=1, value=1, key=f"pqty2_{r['id']}")
-                            with col_p2:
-                                part_model = st.text_input("配件编号/型号", key=f"pmodel2_{r['id']}")
-                                part_unit = st.selectbox("单位", ["个", "根", "片", "套", "块"], key=f"punit2_{r['id']}")
-                            with col_p3:
-                                old_part_status = st.selectbox("旧件去向", ["报废", "回收", "返厂"], key=f"pstatus2_{r['id']}")
-                            if st.button("登记配件", key=f"add_part2_{r['id']}"):
-                                if part_name:
-                                    if '配件清单' not in r['处理信息']:
-                                        r['处理信息']['配件清单'] = []
-                                    r['处理信息']['配件清单'].append({
-                                        "名称": part_name,
-                                        "型号": part_model,
-                                        "数量": part_qty,
-                                        "单位": part_unit,
-                                        "旧件去向": old_part_status,
-                                        "登记人": st.session_state.username,
-                                        "登记时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                                    })
-                                    save_repair_records()
-                                    st.success("配件已登记")
-                                    st.rerun()
-                            
-                            fault_reason = st.text_input("故障原因分析", key=f"freason2_{r['id']}")
-                            measures = st.text_area("处理措施描述", key=f"measures2_{r['id']}", placeholder="请描述具体处理措施")
-                            repair_cost = st.number_input("维修费用(元)", min_value=0, step=10, key=f"cost2_{r['id']}")
-                            
-                            submitted_repair2 = st.form_submit_button("✅ 提交维修记录并完成工单")
-                            if submitted_repair2:
-                                if not measures:
-                                    st.error("请填写处理措施描述")
-                                else:
-                                    img_paths_before = [save_photo(img, f"before_{r['id'][:8]}") for img in before_photos[:5] if img]
-                                    img_paths_during = [save_photo(img, f"during_{r['id'][:8]}") for img in during_photos[:5] if img]
-                                    img_paths_after = [save_photo(img, f"after_{r['id'][:8]}") for img in after_photos[:5] if img]
-                                    r['状态'] = "维修完成"
-                                    r['处理信息']['维修前照片'] = img_paths_before
-                                    r['处理信息']['维修中照片'] = img_paths_during
-                                    r['处理信息']['维修后照片'] = img_paths_after
-                                    r['处理信息']['维修费用'] = repair_cost
-                                    r['处理信息']['处理结果'] = measures
-                                    r['处理信息']['故障原因分析'] = fault_reason
-                                    r['处理信息']['处理措施'] = measures
-                                    r['处理信息']['完成时间'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                                    r['状态流转'].append({
-                                        "状态": "维修完成",
-                                        "操作人": st.session_state.username,
-                                        "操作时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                                        "备注": f"维修完成，费用：{repair_cost}"
-                                    })
-                                    for d in st.session_state.devices:
-                                        if d['id'] == r['设备信息']['资产ID']:
-                                            d['status'] = "在用"
-                                    save_data()
-                                    save_repair_records()
-                                    st.success("维修记录已提交，工单已完成！")
-                                    st.rerun()
-                        with col_btn1:
-                            if st.button("删除", key=f"del_{r['id']}"):
+                    with col_btn1:
+                        if st.button("🚗 上门检修", key=f"visit_{r['id']}"):
+                            r['状态'] = "上门检修中"
+                            r['状态流转'].append({
+                                "状态": "上门检修中",
+                                "操作人": st.session_state.username,
+                                "操作时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                "备注": "工程师已出发"
+                            })
+                            save_repair_records()
+                            st.rerun()
+                    with col_btn2:
+                        if st.button("🗑️ 删除", key=f"del_{r['id']}"):
+                            for d in st.session_state.devices:
+                                if d['id'] == r['设备信息']['资产ID']:
+                                    d['status'] = "在用"
+                            st.session_state.repair_records = [rec for rec in st.session_state.repair_records if rec['id'] != r['id']]
+                            save_data()
+                            save_repair_records()
+                            st.rerun()
+                
+                elif current_status == "上门检修中":
+                    # 同样显示维修执行表单
+                    st.markdown("### 🔧 维修执行")
+                    with st.form(key=f"repair_exec_form2_{r['id']}"):
+                        st.markdown("**📸 维修照片**")
+                        c1, c2, c3 = st.columns(3)
+                        with c1:
+                            before_photos = st.file_uploader("维修前", type=["jpg","png"], accept_multiple_files=True, key=f"before2_{r['id']}")
+                        with c2:
+                            during_photos = st.file_uploader("维修中", type=["jpg","png"], accept_multiple_files=True, key=f"during2_{r['id']}")
+                        with c3:
+                            after_photos = st.file_uploader("维修后", type=["jpg","png"], accept_multiple_files=True, key=f"after2_{r['id']}")
+                        
+                        st.markdown("**🔩 配件登记**")
+                        col_p1, col_p2, col_p3 = st.columns(3)
+                        with col_p1:
+                            part_name = st.text_input("配件名称", key=f"pname2_{r['id']}")
+                            part_qty = st.number_input("数量", min_value=1, value=1, key=f"pqty2_{r['id']}")
+                        with col_p2:
+                            part_model = st.text_input("配件编号/型号", key=f"pmodel2_{r['id']}")
+                            part_unit = st.selectbox("单位", ["个", "根", "片", "套", "块"], key=f"punit2_{r['id']}")
+                        with col_p3:
+                            old_part_status = st.selectbox("旧件去向", ["报废", "回收", "返厂"], key=f"pstatus2_{r['id']}")
+                        if st.button("登记配件", key=f"add_part2_{r['id']}"):
+                            if part_name:
+                                if '配件清单' not in r['处理信息']:
+                                    r['处理信息']['配件清单'] = []
+                                r['处理信息']['配件清单'].append({
+                                    "名称": part_name,
+                                    "型号": part_model,
+                                    "数量": part_qty,
+                                    "单位": part_unit,
+                                    "旧件去向": old_part_status,
+                                    "登记人": st.session_state.username,
+                                    "登记时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                })
+                                save_repair_records()
+                                st.success("配件已登记")
+                                st.rerun()
+                        
+                        fault_reason = st.text_input("故障原因分析", key=f"freason2_{r['id']}")
+                        measures = st.text_area("处理措施描述", key=f"measures2_{r['id']}", placeholder="请描述具体处理措施")
+                        repair_cost = st.number_input("维修费用(元)", min_value=0, step=10, key=f"cost2_{r['id']}")
+                        
+                        submitted_repair2 = st.form_submit_button("✅ 提交维修记录并完成工单")
+                        if submitted_repair2:
+                            if not measures:
+                                st.error("请填写处理措施描述")
+                            else:
+                                img_paths_before = [save_photo(img, f"before_{r['id'][:8]}") for img in before_photos[:5] if img]
+                                img_paths_during = [save_photo(img, f"during_{r['id'][:8]}") for img in during_photos[:5] if img]
+                                img_paths_after = [save_photo(img, f"after_{r['id'][:8]}") for img in after_photos[:5] if img]
+                                r['状态'] = "维修完成"
+                                r['处理信息']['维修前照片'] = img_paths_before
+                                r['处理信息']['维修中照片'] = img_paths_during
+                                r['处理信息']['维修后照片'] = img_paths_after
+                                r['处理信息']['维修费用'] = repair_cost
+                                r['处理信息']['处理结果'] = measures
+                                r['处理信息']['故障原因分析'] = fault_reason
+                                r['处理信息']['处理措施'] = measures
+                                r['处理信息']['完成时间'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                r['状态流转'].append({
+                                    "状态": "维修完成",
+                                    "操作人": st.session_state.username,
+                                    "操作时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                    "备注": f"维修完成，费用：{repair_cost}"
+                                })
                                 for d in st.session_state.devices:
                                     if d['id'] == r['设备信息']['资产ID']:
                                         d['status'] = "在用"
-                                st.session_state.repair_records = [rec for rec in st.session_state.repair_records if rec['id'] != r['id']]
                                 save_data()
                                 save_repair_records()
+                                st.success("维修记录已提交，工单已完成！")
                                 st.rerun()
-                    
-                    elif current_status == "维修完成":
-                        with col_btn1:
-                            if st.button("关闭工单", key=f"close_{r['id']}"):
-                                r['状态'] = "已关闭"
-                                r['状态流转'].append({
-                                    "状态": "已关闭",
-                                    "操作人": st.session_state.username,
-                                    "操作时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                                    "备注": "工单已关闭"
-                                })
-                                save_repair_records()
-                                st.rerun()
-                        with col_btn2:
-                            if st.button("删除", key=f"del_{r['id']}"):
-                                st.session_state.repair_records = [rec for rec in st.session_state.repair_records if rec['id'] != r['id']]
-                                save_repair_records()
-                                st.rerun()
-                    
-                    elif current_status == "已关闭":
-                        with col_btn1:
-                            if st.button("删除", key=f"del_{r['id']}"):
-                                st.session_state.repair_records = [rec for rec in st.session_state.repair_records if rec['id'] != r['id']]
-                                save_repair_records()
-                                st.rerun()
+                    with col_btn1:
+                        if st.button("🗑️ 删除", key=f"del_{r['id']}"):
+                            for d in st.session_state.devices:
+                                if d['id'] == r['设备信息']['资产ID']:
+                                    d['status'] = "在用"
+                            st.session_state.repair_records = [rec for rec in st.session_state.repair_records if rec['id'] != r['id']]
+                            save_data()
+                            save_repair_records()
+                            st.rerun()
+                
+                elif current_status == "维修完成":
+                    with col_btn1:
+                        if st.button("🔒 关闭工单", key=f"close_{r['id']}"):
+                            r['状态'] = "已关闭"
+                            r['状态流转'].append({
+                                "状态": "已关闭",
+                                "操作人": st.session_state.username,
+                                "操作时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                "备注": "工单已关闭"
+                            })
+                            save_repair_records()
+                            st.success("工单已关闭")
+                            st.rerun()
+                    with col_btn2:
+                        if st.button("🗑️ 删除", key=f"del_{r['id']}"):
+                            st.session_state.repair_records = [rec for rec in st.session_state.repair_records if rec['id'] != r['id']]
+                            save_repair_records()
+                            st.rerun()
+                
+                elif current_status == "已关闭":
+                    with col_btn1:
+                        if st.button("🗑️ 删除", key=f"del_{r['id']}"):
+                            st.session_state.repair_records = [rec for rec in st.session_state.repair_records if rec['id'] != r['id']]
+                            save_repair_records()
+                            st.rerun()
 
 
 # ==================== 保养计划 ====================

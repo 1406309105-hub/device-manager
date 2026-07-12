@@ -1583,13 +1583,13 @@ def scan_repair_page():
                 st.rerun()
 
 
-# ==================== 维修工单（完整版） ====================
+# ==================== 维修工单 ====================
 def repair_page():
     st.subheader("🚨 维修工单管理")
     if st.session_state.get('quick_repair_mode', False):
         st.session_state.quick_repair_mode = False
         st.success("📱 快速报修模式已开启，请选择设备并填写报修信息")
-    # 统计看板
+    
     records = st.session_state.repair_records
     if records:
         total = len(records)
@@ -1642,7 +1642,6 @@ def repair_page():
         if not available_devices:
             st.info("暂无可用设备（所有设备已报废）")
             return
-        # 快捷模板
         st.markdown("### ⚡ 快捷报修模板")
         template_cols = st.columns(4)
         templates = [
@@ -1845,7 +1844,6 @@ def repair_page():
         if not filtered:
             st.info("未找到匹配的工单")
             return
-        # 表格
         table_data = []
         for r in filtered:
             device_info = r.get('设备信息', {})
@@ -1918,12 +1916,9 @@ def repair_page():
                         for part in process_info['配件清单']:
                             st.write(f"- {part.get('名称')} x{part.get('数量')} ({part.get('型号')}) 旧件去向：{part.get('旧件去向')}")
                     
-                    # ----- 关键修改：在工程师接单状态下直接显示维修执行表单 -----
-                    current_status = r.get('状态', '')
-                    
                     # 知识库推荐
                     fault_desc = fault_info.get('故障描述', '')
-                    if fault_desc and current_status not in ['维修完成', '已关闭']:
+                    if fault_desc and r.get('状态') not in ['维修完成', '已关闭']:
                         st.markdown("### 📚 知识库推荐")
                         keywords = fault_desc.split()[:3]
                         matched_kb = []
@@ -1942,7 +1937,7 @@ def repair_page():
                     
                     # 历史故障推荐
                     device_model = device_info.get('设备型号', '')
-                    if device_model and current_status not in ['维修完成', '已关闭']:
+                    if device_model and r.get('状态') not in ['维修完成', '已关闭']:
                         similar_records = [rec for rec in st.session_state.repair_records 
                                            if rec.get('设备信息', {}).get('设备型号') == device_model 
                                            and rec.get('状态') in ['维修完成', '已关闭']
@@ -1954,7 +1949,8 @@ def repair_page():
                                     st.write(f"**故障现象：** {sr.get('故障信息', {}).get('故障描述', '')[:80]}...")
                                     st.write(f"**处理方案：** {sr.get('处理信息', {}).get('处理结果', '暂无')}")
                     
-                    # ----- 操作按钮区域 -----
+                    # 操作按钮
+                    current_status = r.get('状态', '')
                     col_btn1, col_btn2, col_btn3, col_btn4 = st.columns(4)
                     
                     if current_status == "已提交":
@@ -2021,7 +2017,7 @@ def repair_page():
                                 st.rerun()
                     
                     elif current_status == "工程师接单":
-                        # ⭐ 在此状态下直接显示维修执行表单，无需再点“上门检修”
+                        # 直接显示维修执行表单
                         st.markdown("### 🔧 维修执行")
                         with st.form(key=f"repair_exec_form_{r['id']}"):
                             st.markdown("**📸 维修照片**")
@@ -2095,8 +2091,7 @@ def repair_page():
                                     st.success("维修记录已提交，工单已完成！")
                                     st.rerun()
                         
-                        # 保留“上门检修”按钮作为可选项（但用户已可直接填写，可省略）
-                        # 但为了兼容旧流程，可以保留
+                        # 保留上门检修按钮
                         with col_btn1:
                             if st.button("上门检修", key=f"visit_{r['id']}"):
                                 r['状态'] = "上门检修中"
@@ -2119,7 +2114,7 @@ def repair_page():
                                 st.rerun()
                     
                     elif current_status == "上门检修中":
-                        # 如果用户通过“上门检修”按钮进入此状态，也可以填写
+                        # 同样显示维修执行表单
                         st.markdown("### 🔧 维修执行")
                         with st.form(key=f"repair_exec_form2_{r['id']}"):
                             st.markdown("**📸 维修照片**")

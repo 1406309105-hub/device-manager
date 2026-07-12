@@ -1609,7 +1609,7 @@ def scan_repair_page():
                 st.rerun()
 
 
-# ==================== 维修工单（修改后） ====================
+# ==================== 维修工单（修改后，修复表单内按钮错误） ====================
 def repair_page():
     st.subheader("🚨 维修工单管理")
     if st.session_state.get('quick_repair_mode', False):
@@ -2108,8 +2108,17 @@ def repair_page():
                         
                         st.markdown("---")
                         
+                        # ===== 备件使用记录（使用数字输入框控制行数） =====
                         st.markdown("**备件使用记录**")
-                        part_rows = st.session_state.get(f"part_rows_{r['id']}", 1)
+                        part_rows = st.number_input(
+                            "备件行数",
+                            min_value=1,
+                            max_value=20,
+                            step=1,
+                            value=st.session_state.get(f"part_rows_{r['id']}", 1),
+                            key=f"part_rows_num_{r['id']}"
+                        )
+                        st.session_state[f"part_rows_{r['id']}"] = part_rows  # 保存状态
                         
                         part_data = []
                         for i in range(part_rows):
@@ -2132,16 +2141,6 @@ def repair_page():
                                     "数量": part_qty,
                                     "备注": part_note
                                 })
-                        
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            if st.button("➕ 添加备件行", key=f"add_part_row_{r['id']}"):
-                                st.session_state[f"part_rows_{r['id']}"] = part_rows + 1
-                                st.rerun()
-                        with col2:
-                            if part_rows > 1 and st.button("➖ 删除备件行", key=f"del_part_row_{r['id']}"):
-                                st.session_state[f"part_rows_{r['id']}"] = part_rows - 1
-                                st.rerun()
                         
                         st.markdown("---")
                         

@@ -1609,7 +1609,7 @@ def scan_repair_page():
                 st.rerun()
 
 
-# ==================== 维修工单 ====================
+# ==================== 维修工单（修改后） ====================
 def repair_page():
     st.subheader("🚨 维修工单管理")
     if st.session_state.get('quick_repair_mode', False):
@@ -1925,40 +1925,14 @@ def repair_page():
                     for part in process_info['配件清单']:
                         st.write(f"- {part.get('名称')} x{part.get('数量')} ({part.get('型号')}) 旧件去向：{part.get('旧件去向')}")
                 
-                # 知识库推荐
-                fault_desc = fault_info.get('故障描述', '')
-                if fault_desc and r.get('状态') not in ['维修完成', '已关闭']:
-                    st.markdown("### 📚 知识库推荐")
-                    keywords = fault_desc.split()[:3]
-                    matched_kb = []
-                    for k in st.session_state.knowledge_base:
-                        for kw in keywords:
-                            if kw in k['title'] or kw in k['content']:
-                                matched_kb.append(k)
-                                break
-                    if matched_kb:
-                        st.caption(f"找到 {len(matched_kb)} 条相关维修方案")
-                        for kb in matched_kb[:2]:
-                            with st.expander(f"📖 {kb['title']}"):
-                                st.write(kb['content'])
-                                if st.button("使用此方案", key=f"use_kb_{kb['id']}_{r.get('id','')}"):
-                                    st.success("已应用方案到处理结果")
-                
-                # 历史故障推荐
-                device_model = device_info.get('设备型号', '')
-                if device_model and r.get('状态') not in ['维修完成', '已关闭']:
-                    similar_records = [rec for rec in st.session_state.repair_records 
-                                       if rec.get('设备信息', {}).get('设备型号') == device_model 
-                                       and rec.get('状态') in ['维修完成', '已关闭']
-                                       and rec.get('工单号') != r.get('工单号')]
-                    if similar_records:
-                        st.markdown("### 💡 同型号历史方案")
-                        for sr in similar_records[-2:]:
-                            with st.expander(f"📋 {sr.get('工单号')} - {sr.get('故障信息', {}).get('故障等级', '')}级"):
-                                st.write(f"**故障现象：** {sr.get('故障信息', {}).get('故障描述', '')[:80]}...")
-                                st.write(f"**处理方案：** {sr.get('处理信息', {}).get('处理结果', '暂无')}")
-                
-                # ===== 操作按钮 =====
+                # ===== 操作备注（可填写） =====
+                remark_key = f"op_remark_{r['id']}"
+                st.text_area(
+                    "📝 操作备注（选填）",
+                    key=remark_key,
+                    placeholder="请输入本次操作说明，将记录到状态流转历史...",
+                    height=68
+                )
                 st.markdown("---")
                 st.markdown("#### 操作")
                 current_status = r.get('状态', '')
@@ -1977,11 +1951,12 @@ def repair_page():
                             else:
                                 r['状态'] = "已派单"
                                 r['处理信息']['处理人'] = assigned_to
+                                remark = st.session_state.get(remark_key, "")
                                 r['状态流转'].append({
                                     "状态": "已派单",
                                     "操作人": st.session_state.username,
                                     "操作时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                                    "备注": f"指派给 {assigned_to}"
+                                    "备注": f"指派给 {assigned_to}。备注：{remark}" if remark else f"指派给 {assigned_to}"
                                 })
                                 save_repair_records()
                                 st.success(f"✅ 已派单给 **{assigned_to}**！")
@@ -2011,27 +1986,19 @@ def repair_page():
                     st.write(f"**故障描述：** {fault_info.get('故障描述', '')[:100]}...")
                     
                     with col_btn1:
-                        with st.popover("✅ 确认接单", use_container_width=True):
-                            st.markdown("### 📋 确认接单")
-                            st.write(f"**设备名称：** {device_info.get('设备名称', '')}")
-                            st.write(f"**故障类型：** {', '.join(fault_info.get('故障类型', []))}")
-                            st.write(f"**紧急程度：** {fault_info.get('故障等级', '')}")
-                            st.write(f"**报修科室：** {repair_info.get('报修科室', '')}")
-                            st.write(f"**指派工程师：** {r.get('处理信息', {}).get('处理人', '未指派')}")
-                            st.markdown("---")
-                            st.caption("确认接单后，工单将进入工程师接单状态，请尽快处理")
-                            if st.button("✅ 确认接单", key=f"confirm_accept_{r['id']}"):
-                                r['状态'] = "工程师接单"
-                                r['处理信息']['处理人'] = st.session_state.username
-                                r['状态流转'].append({
-                                    "状态": "工程师接单",
-                                    "操作人": st.session_state.username,
-                                    "操作时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                                    "备注": f"工程师 {st.session_state.username} 已接单"
-                                })
-                                save_repair_records()
-                                st.success("✅ 接单成功！请填写维修记录")
-                                st.rerun()
+                        if st.button("✅ 接单", key=f"accept_{r['id']}"):
+                            r['状态'] = "工程师接单"
+                            r['处理信息']['处理人'] = st.session_state.username
+                            remark = st.session_state.get(remark_key, "")
+                            r['状态流转'].append({
+                                "状态": "工程师接单",
+                                "操作人": st.session_state.username,
+                                "操作时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                "备注": f"工程师 {st.session_state.username} 已接单。备注：{remark}" if remark else f"工程师 {st.session_state.username} 已接单"
+                            })
+                            save_repair_records()
+                            st.success("✅ 接单成功！请填写维修记录")
+                            st.rerun()
                     with col_btn2:
                         with st.popover("🔄 改派", use_container_width=True):
                             new_engineer = st.selectbox("改派给", engineer_options, key=f"reassign_{r['id']}")
@@ -2227,11 +2194,12 @@ def repair_page():
                     with col_btn1:
                         if st.button("🔒 关闭工单", key=f"close_{r['id']}"):
                             r['状态'] = "已关闭"
+                            remark = st.session_state.get(remark_key, "")
                             r['状态流转'].append({
                                 "状态": "已关闭",
                                 "操作人": st.session_state.username,
                                 "操作时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                                "备注": "工单已关闭"
+                                "备注": f"工单已关闭。备注：{remark}" if remark else "工单已关闭"
                             })
                             save_repair_records()
                             st.success("工单已关闭")

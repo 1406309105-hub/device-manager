@@ -422,6 +422,17 @@ if 'users' not in st.session_state:
 if 'repair_records' not in st.session_state:
     st.session_state.repair_records = load_repair_records()
 
+    # 自动清理孤立工单（设备已被删除的工单）
+    valid_device_ids = {d.get('id') for d in st.session_state.devices}
+    if st.session_state.repair_records:
+        original_count = len(st.session_state.repair_records)
+        st.session_state.repair_records = [
+            r for r in st.session_state.repair_records
+            if r.get('设备信息', {}).get('资产ID') in valid_device_ids
+        ]
+        if len(st.session_state.repair_records) < original_count:
+            save_repair_records()
+            print(f"🧹 自动清理了 {original_count - len(st.session_state.repair_records)} 条孤立工单")
 if 'maintenance_records' not in st.session_state:
     st.session_state.maintenance_records = load_maintenance_records()
 

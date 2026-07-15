@@ -302,9 +302,11 @@ def calculate_depreciation(device):
     except:
         return 0, 0, price
 
+# ========== 修改点 1：二维码生成（去掉 page=scan_repair） ==========
 def generate_device_qr(device_id, device_name):
     base_url = "https://device-manager-main-app-1406309105-hub.streamlit.app"
-    qr_data = f"{base_url}?page=scan_repair&device_id={device_id}"
+    # 只携带 device_id，不再指定 page
+    qr_data = f"{base_url}?device_id={device_id}"
     qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=4, border=2)
     qr.add_data(qr_data)
     qr.make(fit=True)
@@ -509,6 +511,9 @@ if 'template_fault_type' not in st.session_state:
 if 'template_description' not in st.session_state:
     st.session_state.template_description = None
 
+if 'prefill_device_id' not in st.session_state:
+    st.session_state.prefill_device_id = None
+
 
 # ==================== 登录页面 ====================
 def login_page():
@@ -542,6 +547,7 @@ def render_sidebar():
         show_repair_reminders()
         st.markdown("---")
         st.markdown("### 📋 导航菜单")
+        # ========== 修改点 2：删除 "📱 扫码报修" ==========
         menu_options = [
             "📊 仪表板",
             "📋 设备台账",
@@ -552,7 +558,6 @@ def render_sidebar():
             "📊 资产盘点",
             "💰 资产折旧",
             "🏷️ 资产标签",
-            "📱 扫码报修",
             "🚨 维修工单",
             "📅 保养计划",
             "📊 统计分析",
@@ -1555,72 +1560,9 @@ def tag_page():
                 pass
 
 
-# ==================== 手机扫码报修 ====================
-def scan_repair_page():
-    st.subheader("📱 手机扫码报修")
-    device_id = st.query_params.get("device_id", None)
-    if device_id:
-        device = next((d for d in st.session_state.devices if d['id'] == device_id), None)
-        if device:
-            st.success(f"✅ 已识别设备：{device['name']} ({device['model']})")
-            with st.form("scan_repair_form"):
-                st.markdown("### 📋 设备信息")
-                st.write(f"**设备名称：** {device['name']}")
-                st.write(f"**型号：** {device['model']}")
-                st.write(f"**序列号：** {device.get('serial_no', '无')}")
-                st.write(f"**科室：** {device.get('department', '未分配')}")
-                st.markdown("---")
-                st.markdown("### 🔧 故障信息")
-                col1, col2 = st.columns(2)
-                with col1:
-                    urgency = st.selectbox("紧急程度", ["普通", "紧急", "特急"])
-                    fault_type = st.selectbox("故障类型", FAULT_TYPES)
-                with col2:
-                    phone = st.text_input("联系电话")
-                description = st.text_area("故障描述", height=80, placeholder="请详细描述故障情况...")
-                fault_photo = st.camera_input("拍摄故障照片（选填）")
-                if fault_photo:
-                    st.image(fault_photo, width=150, caption="预览")
-                if st.form_submit_button("🚨 提交报修", type="primary"):
-                    if description:
-                        repair = {
-                            "id": str(uuid.uuid4()),
-                            "device_id": device['id'],
-                            "device_name": device['name'],
-                            "reporter": st.session_state.username,
-                            "reporter_name": st.session_state.users[st.session_state.username]['name'],
-                            "report_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                            "urgency": urgency,
-                            "fault_type": fault_type,
-                            "description": description,
-                            "phone": phone,
-                            "status": "待处理",
-                            "source": "扫码报修"
-                        }
-                        st.session_state.repair_records.append(repair)
-                        device['status'] = "维修中"
-                        save_data()
-                        save_repair_records()
-                        st.success("✅ 报修成功！工单已创建")
-                        st.balloons()
-                        st.rerun()
-                    else:
-                        st.error("请填写故障描述")
-        else:
-            st.error("未找到该设备，请检查二维码是否正确")
-    else:
-        st.info("📷 请使用手机扫描设备二维码进入报修页面")
-        st.caption("或选择下方设备手动报修")
-        devices = [d for d in st.session_state.devices if d.get('status') != "报废"]
-        if devices:
-            device_options = {f"{d['name']} - {d['model']}": d['id'] for d in devices}
-            selected = st.selectbox("选择设备", list(device_options.keys()))
-            if st.button("进入报修"):
-                st.query_params["device_id"] = device_options[selected]
-                st.rerun()
+# ==================== （已删除原手机扫码报修页面） ====================
 
-
-# ==================== 维修工单（最新版：含管理员删除权限 + 退回功能 + 操作备注） ====================
+# ==================== 维修工单（含管理员删除权限 + 退回功能 + 操作备注） ====================
 def repair_page():
     st.subheader("🚨 维修工单管理")
     if st.session_state.get('quick_repair_mode', False):
@@ -1680,10 +1622,40 @@ def repair_page():
             st.info("暂无可用设备（所有设备已报废）")
             return
 
+        # ========== 修改点 3：支持预填设备 ==========
+        prefill_id = st.session_state.get("prefill_device_id")
+        prefill_device = None
+        if prefill_id:
+            for d in available_devices:
+                if d['id'] == prefill_id:
+                    prefill_device = d
+                    break
+            if prefill_device is None:
+                st.warning("扫描的设备不存在或已报废，请手动选择")
+                st.session_state.prefill_device_id = None
+            else:
+                # 自动选中该设备，并在表单下方提示
+                pass
+
         device_options = {f"{d['name']} - {d['model']} (ID:{d.get('id','')[:8]})": d for d in available_devices}
-        selected_label = st.selectbox("选择设备", list(device_options.keys()))
+        default_label = None
+        if prefill_device:
+            default_label = f"{prefill_device['name']} - {prefill_device['model']} (ID:{prefill_device.get('id','')[:8]})"
+            if default_label not in device_options:
+                default_label = None
+
+        selected_label = st.selectbox(
+            "选择设备",
+            list(device_options.keys()),
+            index=list(device_options.keys()).index(default_label) if default_label else 0
+        )
         selected_device = device_options[selected_label]
-        
+
+        if prefill_device:
+            st.success(f"✅ 已自动选择设备：{prefill_device['name']}（{prefill_device['model']}）")
+            # 清除预填标志，避免再次触发
+            st.session_state.prefill_device_id = None
+
         with st.form("repair_form"):
             st.markdown("### 📋 设备信息")
             col1, col2 = st.columns(2)
@@ -1936,7 +1908,7 @@ def repair_page():
                     for part in process_info['配件清单']:
                         st.write(f"- {part.get('名称')} x{part.get('数量')} ({part.get('型号')}) 旧件去向：{part.get('旧件去向')}")
                 
-                # ===== 操作备注（可填写） =====
+                # ===== 操作备注 =====
                 remark_key = f"op_remark_{r['id']}"
                 st.text_area(
                     "📝 操作备注（选填）",
@@ -2916,7 +2888,19 @@ def main():
     if not st.session_state.logged_in:
         login_page()
     else:
+        # ========== 新增：处理扫码跳转 ==========
+        device_id_param = st.query_params.get("device_id")
+        if device_id_param:
+            # 保存设备ID到 session_state
+            st.session_state.prefill_device_id = device_id_param
+            # 设置目标菜单为维修工单
+            st.session_state.target_menu = "🚨 维修工单"
+            # 清除 query_params，避免重复触发
+            st.query_params.clear()
+        # ====================================
+
         menu = render_sidebar()
+        # ========== 删除路由分支（已无 scan_repair_page） ==========
         if st.session_state.get('target_menu'):
             menu = st.session_state.target_menu
         if menu == "📊 仪表板":
@@ -2937,8 +2921,6 @@ def main():
             depreciation_page()
         elif menu == "🏷️ 资产标签":
             tag_page()
-        elif menu == "📱 扫码报修":
-            scan_repair_page()
         elif menu == "🚨 维修工单":
             repair_page()
         elif menu == "📅 保养计划":
